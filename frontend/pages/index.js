@@ -1,18 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [images, setImages] = useState([]);
 
   const handleChange = (e) => {
     const files = Array.from(e.target.files);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages((prev) => [...prev, ev.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+    setImages((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        url: URL.createObjectURL(file),
+        name: file.name,
+      })),
+    ]);
+    e.target.value = null;
   };
+
+  useEffect(() => {
+    return () => {
+      images.forEach((img) => URL.revokeObjectURL(img.url));
+    };
+  }, [images]);
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
@@ -20,11 +27,11 @@ export default function Home() {
       <p>Welcome to the puzzle application built with Next.js.</p>
       <input type="file" accept="image/*" multiple onChange={handleChange} />
       <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '1rem' }}>
-        {images.map((src, idx) => (
+        {images.map((img, idx) => (
           <img
             key={idx}
-            src={src}
-            alt={`upload-${idx}`}
+            src={img.url}
+            alt={img.name}
             style={{ maxWidth: '200px', marginRight: '1rem', marginBottom: '1rem' }}
           />
         ))}
