@@ -26,7 +26,19 @@ def detect_piece_corners(mask, max_corners: int = 20, quality_level: float = 0.0
 
 
 def select_four_corners(corner_pts):
-    """Cluster many corner candidates into four representative corners."""
+    """Reduce many detected corners to four cluster centers.
+
+    Parameters
+    ----------
+    corner_pts : ndarray of shape ``(n, 2)``
+        Candidate corner coordinates as ``(x, y)`` pairs.
+
+    Returns
+    -------
+    ndarray
+        Array of four ``(x, y)`` points when ``n >= 4`` otherwise the input
+        array is returned.
+    """
     if len(corner_pts) < 4:
         return corner_pts
     kmeans = KMeans(n_clusters=4, random_state=42).fit(corner_pts)
@@ -34,7 +46,24 @@ def select_four_corners(corner_pts):
 
 
 def is_edge_straight(mask, corner1, corner2, tolerance: float = 0.98, sample_points: int = 50):
-    """Check if the edge between two corners follows a straight boundary."""
+    """Check if the boundary between two corners is mostly straight.
+
+    Parameters
+    ----------
+    mask : ndarray
+        Binary ``(H, W)`` mask of the piece.
+    corner1, corner2 : array-like
+        End points ``(x, y)`` of the edge to test.
+    tolerance : float, optional
+        Minimum fraction of sampled points that must lie on ``mask``.
+    sample_points : int, optional
+        Number of points to sample along the edge.
+
+    Returns
+    -------
+    bool
+        ``True`` if the portion of points on the mask meets ``tolerance``.
+    """
     x1, y1 = corner1
     x2, y2 = corner2
     h, w = mask.shape
