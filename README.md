@@ -55,8 +55,16 @@ A lightweight Flask application exposes puzzle utilities. Start it with:
 python server.py
 ```
 
-By default it runs on port 5000 with an endpoint `/remove_background` that
-accepts an uploaded image and returns the segmented puzzle piece as base64.
+By default it runs on port 5000. Several endpoints are available that each
+perform one step of the workflow:
+
+- `/remove_background` – segment the puzzle piece and return the result and mask
+- `/detect_corners` – highlight detected corners on the piece
+- `/classify_piece` – return whether the piece is a corner, edge or middle piece
+- `/edge_descriptors` – compute simple metrics for each edge
+
+The included Next.js site provides buttons that call these endpoints
+individually so you can inspect the output of every stage.
 
 
 
