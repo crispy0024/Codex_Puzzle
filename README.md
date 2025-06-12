@@ -48,3 +48,6 @@ npm run dev
 The site will be available at `http://localhost:3000`.
 
 
+
+## License
+Released under the [MIT License](LICENSE).
