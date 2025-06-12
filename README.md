@@ -39,4 +39,7 @@ npm run dev
 
 The site will be available at `http://localhost:3000`.
 
+When deploying to Vercel, set the **Root Directory** to `frontend/` so that the
+platform can detect the Next.js project and build it correctly.
+
 
