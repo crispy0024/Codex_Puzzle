@@ -47,6 +47,17 @@ npm run dev
 
 The site will be available at `http://localhost:3000`.
 
+## Flask API
+
+A lightweight Flask application exposes puzzle utilities. Start it with:
+
+```bash
+python server.py
+```
+
+By default it runs on port 5000 with an endpoint `/remove_background` that
+accepts an uploaded image and returns the segmented puzzle piece as base64.
+
 
 
 ## License
