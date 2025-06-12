@@ -26,4 +26,17 @@ pytest
 
 These tests do not require the original puzzle images and serve only as sanity checks for the library functions.
 
+## Next.js Frontend
+
+A minimal frontend built with [Next.js](https://nextjs.org/) is included under the
+`frontend/` directory. To start the development server run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The site will be available at `http://localhost:3000`.
+
 
