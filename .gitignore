@@ -1,0 +1,16 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+
+# Jupyter notebooks
+*.ipynb
+
+# Node modules
+frontend/node_modules/
+
+# Next.js build output
+frontend/.next/
+# Vercel configuration
+.vercel/
