@@ -26,4 +26,17 @@ pytest
 
 These tests do not require the original puzzle images and serve only as sanity checks for the library functions.
 
+## Web Interface
+
+A simple Flask application is provided in `webapp/` to try the puzzle utilities
+from the browser. Run the server with:
+
+```bash
+python -m webapp.app
+```
+
+Open `http://localhost:5000` and upload an image of a puzzle piece. The page
+shows the segmented piece and reports whether it is classified as a corner,
+edge or middle piece.
+
 
