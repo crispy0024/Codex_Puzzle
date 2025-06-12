@@ -42,20 +42,14 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+    <div className="container">
       <h1>Codex Puzzle</h1>
       <input type="file" accept="image/*" onChange={handleFileChange} />
-      <div style={{ marginTop: '1rem' }}>
+      <div className="buttons" style={{ marginTop: '1rem' }}>
         <button onClick={runRemoveBackground}>Remove Background</button>
-        <button onClick={runDetectCorners} style={{ marginLeft: '0.5rem' }}>
-          Detect Corners
-        </button>
-        <button onClick={runClassifyPiece} style={{ marginLeft: '0.5rem' }}>
-          Classify Piece
-        </button>
-        <button onClick={runEdgeDescriptors} style={{ marginLeft: '0.5rem' }}>
-          Edge Descriptors
-        </button>
+        <button onClick={runDetectCorners}>Detect Corners</button>
+        <button onClick={runClassifyPiece}>Classify Piece</button>
+        <button onClick={runEdgeDescriptors}>Edge Descriptors</button>
       </div>
       {result.remove && (
         <div style={{ marginTop: '1rem' }}>
