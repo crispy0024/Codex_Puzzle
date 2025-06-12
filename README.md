@@ -16,9 +16,17 @@ The project requires Python 3.8+ with the packages listed in `requirements.txt`.
 ./setup.sh
 ```
 
+For contributors who want to hack on the code, install the package in editable
+mode so local changes are picked up automatically:
+
+```bash
+pip install -e .
+```
+
 ## Tests
 
-Simple unit tests are provided for the main utilities. Execute them with:
+Simple unit tests are provided for the main utilities. After installing the
+package in editable mode, run the tests with:
 
 ```bash
 pytest
