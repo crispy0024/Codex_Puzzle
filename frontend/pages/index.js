@@ -3,21 +3,34 @@ import { useState, useEffect } from 'react';
 export default function Home() {
   const [images, setImages] = useState([]);
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const files = Array.from(e.target.files);
-    setImages((prev) => [
-      ...prev,
-      ...files.map((file) => ({
-        url: URL.createObjectURL(file),
-        name: file.name,
-      })),
-    ]);
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch('http://localhost:5000/remove_background', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        return {
+          url: `data:image/png;base64,${data.image}`,
+          name: file.name,
+        };
+      })
+    );
+    setImages((prev) => [...prev, ...results]);
     e.target.value = null;
   };
 
   useEffect(() => {
     return () => {
-      images.forEach((img) => URL.revokeObjectURL(img.url));
+      images.forEach((img) => {
+        if (img.url.startsWith('blob:')) {
+          URL.revokeObjectURL(img.url);
+        }
+      });
     };
   }, [images]);
 
