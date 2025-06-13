@@ -2,18 +2,22 @@ import { useState } from 'react';
 
 export default function Home() {
   const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [result, setResult] = useState({});
+  const [batchResults, setBatchResults] = useState([]);
 
   const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+    const selected = Array.from(e.target.files);
+    setFiles(selected);
+    if (selected.length > 0) {
+      setFile(selected[0]);
     }
   };
 
-  const postImage = async (endpoint) => {
-    if (!file) return null;
+  const postImage = async (endpoint, imageFile = file) => {
+    if (!imageFile) return null;
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', imageFile);
     const res = await fetch(`http://localhost:5000/${endpoint}`, {
       method: 'POST',
       body: formData,
@@ -24,6 +28,17 @@ export default function Home() {
   const runRemoveBackground = async () => {
     const data = await postImage('remove_background');
     if (data) setResult((r) => ({ ...r, remove: data }));
+  };
+
+  const runBatchRemoveBackground = async () => {
+    const outputs = [];
+    for (const imgFile of files) {
+      const data = await postImage('remove_background', imgFile);
+      if (data) {
+        outputs.push({ name: imgFile.name, data });
+      }
+    }
+    setBatchResults(outputs);
   };
 
   const runDetectCorners = async () => {
@@ -44,12 +59,13 @@ export default function Home() {
   return (
     <div className="container">
       <h1>Codex Puzzle</h1>
-      <input type="file" accept="image/*" onChange={handleFileChange} />
+      <input type="file" multiple accept="image/*" onChange={handleFileChange} />
       <div className="buttons" style={{ marginTop: '1rem' }}>
         <button onClick={runRemoveBackground}>Remove Background</button>
         <button onClick={runDetectCorners}>Detect Corners</button>
         <button onClick={runClassifyPiece}>Classify Piece</button>
         <button onClick={runEdgeDescriptors}>Edge Descriptors</button>
+        <button onClick={runBatchRemoveBackground}>Batch Remove Background</button>
       </div>
       {result.remove && (
         <div style={{ marginTop: '1rem' }}>
@@ -83,6 +99,26 @@ export default function Home() {
         <div style={{ marginTop: '1rem' }}>
           <h3>Edge Descriptor Lengths</h3>
           <pre>{JSON.stringify(result.descriptors, null, 2)}</pre>
+        </div>
+      )}
+      {batchResults.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Batch Results</h3>
+          {batchResults.map((res, idx) => (
+            <div key={idx} style={{ marginBottom: '1rem' }}>
+              <p>{res.name}</p>
+              <img
+                src={`data:image/png;base64,${res.data.image}`}
+                alt="segmented"
+                style={{ maxWidth: '200px', marginRight: '1rem' }}
+              />
+              <img
+                src={`data:image/png;base64,${res.data.mask}`}
+                alt="mask"
+                style={{ maxWidth: '200px' }}
+              />
+            </div>
+          ))}
         </div>
       )}
     </div>
