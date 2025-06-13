@@ -10,7 +10,7 @@ This repository contains notebooks and Python modules experimenting with compute
 
 ## Setup
 
-The project requires Python 3.8+ with the packages listed in `requirements.txt`. To install them run:
+The project requires Python 3.8+ with the packages listed in `requirements.txt`. This includes `flask-cors` for enabling cross-origin requests from the frontend. To install the dependencies run:
 
 ```bash
 ./setup.sh
@@ -50,7 +50,8 @@ The site will be available at `http://localhost:3000`.
 
 ## Flask API
 
-A lightweight Flask application exposes puzzle utilities. Start it with:
+A lightweight Flask application exposes puzzle utilities. The app uses
+`flask-cors` so the frontend can call the API from another origin. Start it with:
 
 ```bash
 python server.py
