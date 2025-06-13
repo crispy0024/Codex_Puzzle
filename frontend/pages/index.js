@@ -5,6 +5,7 @@ export default function Home() {
   const [files, setFiles] = useState([]);
   const [result, setResult] = useState({});
   const [batchResults, setBatchResults] = useState([]);
+  const [pieces, setPieces] = useState([]);
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files);
@@ -56,6 +57,11 @@ export default function Home() {
     if (data) setResult((r) => ({ ...r, descriptors: data.metrics }));
   };
 
+  const runSegmentPieces = async () => {
+    const data = await postImage('segment_pieces');
+    if (data && data.pieces) setPieces(data.pieces);
+  };
+
   return (
     <div className="container">
       <h1>Codex Puzzle</h1>
@@ -66,6 +72,7 @@ export default function Home() {
         <button onClick={runClassifyPiece}>Classify Piece</button>
         <button onClick={runEdgeDescriptors}>Edge Descriptors</button>
         <button onClick={runBatchRemoveBackground}>Batch Remove Background</button>
+        <button onClick={runSegmentPieces}>Segment Pieces</button>
       </div>
       {result.remove && (
         <div style={{ marginTop: '1rem' }}>
@@ -119,6 +126,21 @@ export default function Home() {
               />
             </div>
           ))}
+        </div>
+      )}
+      {pieces.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Segmented Pieces</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {pieces.map((p, idx) => (
+              <img
+                key={idx}
+                src={`data:image/png;base64,${p}`}
+                alt={`piece-${idx}`}
+                style={{ maxWidth: '150px', marginRight: '1rem', marginBottom: '1rem' }}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

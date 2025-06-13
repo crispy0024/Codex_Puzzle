@@ -9,6 +9,7 @@ from puzzle.segmentation import (
     detect_piece_corners,
     select_four_corners,
     classify_piece_type,
+    segment_pieces,
 )
 from puzzle.features import extract_edge_descriptors
 
@@ -87,6 +88,25 @@ def edge_descriptors_endpoint():
         sift_len = len(d['sift']) if d['sift'] is not None else 0
         metrics.append({'hist_len': hist_len, 'sift_len': sift_len})
     return jsonify({'metrics': metrics})
+
+
+@app.route('/segment_pieces', methods=['POST'])
+def segment_pieces_endpoint():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    file = request.files['image']
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    pieces = segment_pieces(img, min_area=100)
+    outputs = []
+    for p in pieces:
+        _, buf = cv2.imencode('.png', p)
+        outputs.append(base64.b64encode(buf).decode('utf-8'))
+
+    return jsonify({'pieces': outputs})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
