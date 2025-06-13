@@ -21,6 +21,7 @@ from .scoring import (
     shape_similarity,
     color_similarity,
     compatibility_score,
+    top_n_matches,
 )
 
 __all__ = [
@@ -42,4 +43,5 @@ __all__ = [
     "shape_similarity",
     "color_similarity",
     "compatibility_score",
+    "top_n_matches",
 ]

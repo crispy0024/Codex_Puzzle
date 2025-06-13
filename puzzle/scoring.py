@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from .features import EdgeFeatures
+from .features import EdgeFeatures, PieceFeatures
 
 
 def shape_similarity(edge_a: EdgeFeatures, edge_b: EdgeFeatures) -> float:
@@ -53,3 +53,47 @@ def compatibility_score(
         return float("inf")
 
     return weight_shape * s_shape + weight_color * s_color
+
+
+def top_n_matches(pieces: list[PieceFeatures], n: int = 5):
+    """Return the best matching edges between all pieces.
+
+    Parameters
+    ----------
+    pieces : list[PieceFeatures]
+        Pieces whose edges will be compared.
+    n : int, optional
+        Number of matches to return per edge.
+
+    Returns
+    -------
+    dict
+        Mapping ``(piece_id, edge_index)`` to a list of
+        ``(other_piece_id, other_edge_index, score)`` tuples sorted by score.
+    """
+
+    results: dict[tuple[int, int], list[tuple[int, int, float]]] = {}
+
+    for pid, piece in enumerate(pieces):
+        for ei, edge in enumerate(piece.edges):
+            if edge.edge_type == "flat":
+                continue
+
+            matches: list[tuple[int, int, float]] = []
+
+            for opid, other in enumerate(pieces):
+                if opid == pid:
+                    continue
+                for oei, other_edge in enumerate(other.edges):
+                    if (edge.edge_type, other_edge.edge_type) not in _VALID_PAIRS:
+                        continue
+
+                    score = compatibility_score(edge, other_edge)
+                    if np.isinf(score):
+                        continue
+                    matches.append((opid, oei, score))
+
+            matches.sort(key=lambda x: x[2])
+            results[(pid, ei)] = matches[:n]
+
+    return results
