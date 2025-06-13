@@ -2,29 +2,20 @@
 import { useState } from 'react';
 
 export default function Home() {
-  const [file, setFile] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [result, setResult] = useState({});
-  const [batchResults, setBatchResults] = useState([]);
-  const [pieces, setPieces] = useState([]);
 
-  const handleFileChange = (e) => {
-    const selected = Array.from(e.target.files);
-    setFiles(selected);
-    if (selected.length > 0) {
-      setFile(selected[0]);
-    }
-  };
+  const [images, setImages] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [segments, setSegments] = useState({});
+  const inputRef = useRef(null);
 
-  const postImage = async (endpoint, imageFile = file) => {
-    if (!imageFile) return null;
-    const formData = new FormData();
-    formData.append('image', imageFile);
-    const res = await fetch(`http://localhost:5000/${endpoint}`, {
-      method: 'POST',
-      body: formData,
-    });
-    return res.json();
+  const handleFiles = (files) => {
+    const newImages = Array.from(files).map((file) => ({
+      url: URL.createObjectURL(file),
+      name: file.name,
+      file: file,
+    }));
+    setImages((prev) => [...prev, ...newImages]);
+
   };
 
   const runRemoveBackground = async () => {
@@ -43,9 +34,31 @@ export default function Home() {
     setBatchResults(outputs);
   };
 
-  const runDetectCorners = async () => {
-    const data = await postImage('detect_corners');
-    if (data) setResult((r) => ({ ...r, corners: data }));
+
+  const segmentSelected = async () => {
+    const form = new FormData();
+    selected.forEach((idx) => {
+      form.append('files', images[idx].file, images[idx].name);
+    });
+    const res = await fetch('http://localhost:8000/segment', {
+      method: 'POST',
+      body: form,
+    });
+    const data = await res.json();
+    const segs = {};
+    data.results.forEach((resItem, i) => {
+      const idx = selected[i];
+      segs[idx] = resItem.pieces.map((p) => `data:image/png;base64,${p}`);
+    });
+    setSegments((prev) => ({ ...prev, ...segs }));
+    setSelected([]);
+  };
+
+  const toggleSelect = (idx) => {
+    setSelected((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+
   };
 
   const runClassifyPiece = async () => {
@@ -84,68 +97,54 @@ export default function Home() {
             alt="segmented"
             style={{ maxWidth: '200px', marginRight: '1rem' }}
 
-          />
-          <img
-            src={`data:image/png;base64,${result.remove.mask}`}
-            alt="mask"
-            style={{ maxWidth: '200px' }}
-          />
-        </div>
-      )}
-      {result.corners && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Corners</h3>
-          <img
-            src={`data:image/png;base64,${result.corners.image}`}
-            alt="corners"
-            style={{ maxWidth: '200px' }}
-          />
-        </div>
-      )}
-      {result.type && (
-        <p style={{ marginTop: '1rem' }}>Piece Type: {result.type}</p>
-      )}
-      {result.descriptors && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Edge Descriptor Lengths</h3>
-          <pre>{JSON.stringify(result.descriptors, null, 2)}</pre>
-        </div>
-      )}
-      {batchResults.length > 0 && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Batch Results</h3>
-          {batchResults.map((res, idx) => (
-            <div key={idx} style={{ marginBottom: '1rem' }}>
-              <p>{res.name}</p>
-              <img
-                src={`data:image/png;base64,${res.data.image}`}
-                alt="segmented"
-                style={{ maxWidth: '200px', marginRight: '1rem' }}
-              />
-              <img
-                src={`data:image/png;base64,${res.data.mask}`}
-                alt="mask"
-                style={{ maxWidth: '200px' }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-      {pieces.length > 0 && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Segmented Pieces</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            {pieces.map((p, idx) => (
-              <img
-                key={idx}
-                src={`data:image/png;base64,${p}`}
-                alt={`piece-${idx}`}
-                style={{ maxWidth: '150px', marginRight: '1rem', marginBottom: '1rem' }}
-              />
-            ))}
+
+      <button
+        onClick={segmentSelected}
+        disabled={selected.length === 0}
+        style={{ marginTop: '1rem' }}
+      >
+        Segment Selected
+      </button>
+
+      <div style={{ marginTop: '1rem' }}>
+        {images.map((img, idx) => (
+          <div key={idx} style={{ marginBottom: '2rem' }}>
+            <img
+              src={img.url}
+              alt={img.name}
+              onClick={() => toggleSelect(idx)}
+              style={{
+                width: '150px',
+                height: '150px',
+                objectFit: 'cover',
+                marginRight: '1rem',
+                marginBottom: '1rem',
+                border: selected.includes(idx)
+                  ? '3px solid blue'
+                  : '1px solid #ccc',
+                cursor: 'pointer',
+              }}
+            />
+            {segments[idx] && (
+              <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                {segments[idx].map((piece, pidx) => (
+                  <img
+                    key={pidx}
+                    src={piece}
+                    alt={`piece-${pidx}`}
+                    style={{
+                      width: '100px',
+                      height: '100px',
+                      objectFit: 'contain',
+                      marginRight: '0.5rem',
+                      marginBottom: '0.5rem',
+                      border: '1px solid #ccc',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        ))}
+      </div>
+
