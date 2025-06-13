@@ -1,5 +1,6 @@
 
 import base64
+import json
 import cv2
 import numpy as np
 from flask import Flask, request, jsonify
@@ -14,7 +15,8 @@ from puzzle.segmentation import (
     segment_pieces_metadata,
     PuzzlePiece,
 )
-from puzzle.features import extract_edge_descriptors
+from puzzle.features import extract_edge_descriptors, classify_edge_types, EdgeFeatures
+from puzzle.scoring import compatibility_score
 
 COLOR_MAP = {
     'red': (0, 0, 255),
@@ -160,6 +162,91 @@ def edge_descriptors_endpoint():
         sift_len = len(d['sift']) if d['sift'] is not None else 0
         metrics.append({'hist_len': hist_len, 'sift_len': sift_len})
     return jsonify({'metrics': metrics})
+
+
+@app.route('/compare_edges', methods=['POST'])
+def compare_edges_endpoint():
+    # Allow sending precomputed descriptors as JSON
+    desc1_json = request.form.get('desc1')
+    desc2_json = request.form.get('desc2')
+    if desc1_json and desc2_json:
+        try:
+            d1 = json.loads(desc1_json)
+            d2 = json.loads(desc2_json)
+        except Exception:
+            return jsonify({'error': 'Invalid descriptors'}), 400
+
+        def _from_desc(d):
+            return EdgeFeatures(
+                edge_type=d.get('edge_type', 'flat'),
+                length=0.0,
+                angle=0.0,
+                hu_moments=np.array(d.get('hu')) if d.get('hu') is not None else None,
+                color_hist=np.array(d.get('hist')) if d.get('hist') is not None else None,
+                color_profile=np.array(d.get('color_profile')) if d.get('color_profile') is not None else None,
+            )
+
+        edge1 = _from_desc(d1)
+        edge2 = _from_desc(d2)
+        score = compatibility_score(edge1, edge2)
+        return jsonify({'score': score})
+
+    # Otherwise expect two images and edge indices
+    if 'image1' not in request.files or 'image2' not in request.files:
+        return jsonify({'error': 'Two images required'}), 400
+
+    file1 = request.files['image1']
+    file2 = request.files['image2']
+    img1 = cv2.imdecode(np.frombuffer(file1.read(), np.uint8), cv2.IMREAD_COLOR)
+    img2 = cv2.imdecode(np.frombuffer(file2.read(), np.uint8), cv2.IMREAD_COLOR)
+    if img1 is None or img2 is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    def _pint(name, default):
+        try:
+            return int(request.form.get(name, default))
+        except (TypeError, ValueError):
+            return default
+
+    idx1 = _pint('edge1', 0)
+    idx2 = _pint('edge2', 0)
+
+    mask1, _ = remove_background(img1)
+    mask2, _ = remove_background(img2)
+    corners1 = select_four_corners(detect_piece_corners(mask1))
+    corners2 = select_four_corners(detect_piece_corners(mask2))
+
+    conts1, _ = cv2.findContours(mask1.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    conts2, _ = cv2.findContours(mask2.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not conts1 or not conts2:
+        return jsonify({'error': 'Unable to find contours'}), 400
+    cont1 = max(conts1, key=cv2.contourArea)
+    cont2 = max(conts2, key=cv2.contourArea)
+
+    labels1 = classify_edge_types(cont1, corners1)
+    labels2 = classify_edge_types(cont2, corners2)
+    descs1 = extract_edge_descriptors(img1, mask1, corners1)
+    descs2 = extract_edge_descriptors(img2, mask2, corners2)
+
+    if idx1 >= len(descs1) or idx2 >= len(descs2):
+        return jsonify({'error': 'Edge index out of range'}), 400
+
+    def _make_edge(desc, label, pt1, pt2):
+        length = float(np.hypot(pt2[0] - pt1[0], pt2[1] - pt1[1]))
+        angle = float(np.degrees(np.arctan2(pt2[1] - pt1[1], pt2[0] - pt1[0])))
+        return EdgeFeatures(
+            edge_type=label,
+            length=length,
+            angle=angle,
+            hu_moments=np.array(desc['hu']) if desc['hu'] is not None else None,
+            color_hist=np.array(desc['hist']) if desc['hist'] is not None else None,
+            color_profile=np.array(desc['color_profile']) if desc['color_profile'] is not None else None,
+        )
+
+    e1 = _make_edge(descs1[idx1], labels1[idx1], corners1[idx1], corners1[(idx1 + 1) % 4])
+    e2 = _make_edge(descs2[idx2], labels2[idx2], corners2[idx2], corners2[(idx2 + 1) % 4])
+    score = compatibility_score(e1, e2)
+    return jsonify({'score': score})
 
 
 @app.route('/segment_pieces', methods=['POST'])
