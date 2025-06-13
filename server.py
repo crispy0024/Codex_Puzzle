@@ -12,6 +12,7 @@ from puzzle.segmentation import (
     select_four_corners,
     classify_piece_type,
     segment_pieces,
+    segment_pieces_by_median,
     segment_pieces_metadata,
     PuzzlePiece,
 )
@@ -274,6 +275,35 @@ def segment_pieces_endpoint():
         thresh_val=thresh,
         kernel_size=kernel,
     )
+    outputs = []
+    for p in pieces:
+        _, buf = cv2.imencode('.png', p)
+        outputs.append(base64.b64encode(buf).decode('utf-8'))
+
+    return jsonify({'pieces': outputs})
+
+
+@app.route('/extract_filtered_pieces', methods=['POST'])
+def extract_filtered_pieces_endpoint():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    file = request.files['image']
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    try:
+        thresh = int(request.form.get('threshold', 250))
+    except ValueError:
+        thresh = 250
+    try:
+        kernel = int(request.form.get('kernel_size', 3))
+    except ValueError:
+        kernel = 3
+
+    pieces = segment_pieces_by_median(img, thresh_val=thresh, kernel_size=kernel)
+
     outputs = []
     for p in pieces:
         _, buf = cv2.imencode('.png', p)

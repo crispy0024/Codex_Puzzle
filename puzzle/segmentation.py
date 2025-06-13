@@ -279,6 +279,65 @@ def segment_pieces(
     return pieces
 
 
+def segment_pieces_by_median(image, thresh_val: int = 250, kernel_size: int = 3):
+    """Segment pieces and filter by contour area around the median.
+
+    The image is thresholded in the same way as :func:`segment_pieces` to
+    obtain contours.  After all contours are detected, the median area is
+    computed and only pieces whose area falls within ``75%`` to ``125%`` of
+    this median are kept.  For every accepted contour an image is returned
+    that contains a blank background with only the contour outline drawn on
+    it.
+
+    Parameters
+    ----------
+    image : ndarray
+        BGR image that potentially contains many pieces.
+    thresh_val : int, optional
+        Threshold value used to separate foreground from background.
+    kernel_size : int, optional
+        Size of the morphological kernel used to clean up the mask.  When less
+        than ``2`` the morphology step is skipped.
+
+    Returns
+    -------
+    list[numpy.ndarray]
+        Cropped images with only the outer contour drawn.
+    """
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
+
+    if kernel_size and kernel_size > 1:
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    if not contours:
+        return []
+
+    areas = [cv2.contourArea(c) for c in contours]
+    median = float(np.median(areas))
+    lower = 0.75 * median
+    upper = 1.25 * median
+
+    outputs = []
+    for cnt, area in zip(contours, areas):
+        if area < lower or area > upper:
+            continue
+        x, y, w, h = cv2.boundingRect(cnt)
+        blank = np.zeros((h, w, 3), dtype=np.uint8)
+        local = cnt - [x, y]
+        cv2.drawContours(blank, [local], -1, (255, 255, 255), 1)
+        outputs.append(blank)
+
+    return outputs
+
+
 def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normalize: bool = True):
     """Segment puzzle pieces and return metadata for each piece.
 
