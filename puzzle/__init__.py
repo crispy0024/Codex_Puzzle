@@ -4,6 +4,7 @@ from .segmentation import (
     select_four_corners,
     is_edge_straight,
     classify_piece_type,
+    segment_pieces,
 )
 from .features import extract_edge_descriptors
 from .assembly import render_puzzle
@@ -14,6 +15,7 @@ __all__ = [
     "select_four_corners",
     "is_edge_straight",
     "classify_piece_type",
+    "segment_pieces",
     "extract_edge_descriptors",
     "render_puzzle",
 ]
