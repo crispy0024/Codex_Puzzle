@@ -170,7 +170,21 @@ def segment_pieces_endpoint():
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
 
-    pieces = segment_pieces(img, min_area=100)
+    try:
+        thresh = int(request.form.get('threshold', 250))
+    except ValueError:
+        thresh = 250
+    try:
+        kernel = int(request.form.get('kernel_size', 3))
+    except ValueError:
+        kernel = 3
+
+    pieces = segment_pieces(
+        img,
+        min_area=100,
+        thresh_val=thresh,
+        kernel_size=kernel,
+    )
     outputs = []
     for p in pieces:
         _, buf = cv2.imencode('.png', p)

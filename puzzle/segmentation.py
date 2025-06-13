@@ -163,7 +163,12 @@ def classify_piece_type(mask, corners):
     return "middle"
 
 
-def segment_pieces(image, min_area: int = 1000):
+def segment_pieces(
+    image,
+    min_area: int = 1000,
+    thresh_val: int = 250,
+    kernel_size: int = 3,
+):
     """Segment an image containing multiple puzzle pieces.
 
     This utility performs a naive foreground extraction by thresholding
@@ -177,6 +182,11 @@ def segment_pieces(image, min_area: int = 1000):
         BGR image that potentially contains many pieces.
     min_area : int, optional
         Minimum contour area to consider a region a puzzle piece.
+    thresh_val : int, optional
+        Grayscale threshold used to separate the pieces from the background.
+    kernel_size : int, optional
+        Size of the morphological kernel applied to smooth ``thresh``. When
+        less than ``2`` the morphology step is skipped.
 
     Returns
     -------
@@ -184,8 +194,16 @@ def segment_pieces(image, min_area: int = 1000):
         Cropped BGR images, one for each detected piece.
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
+
+    if kernel_size and kernel_size > 1:
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
 
     pieces = []
     for cnt in contours:
