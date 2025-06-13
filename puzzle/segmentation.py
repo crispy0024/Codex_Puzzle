@@ -10,6 +10,7 @@ def remove_background(
     rect_margin: int = 1,
     lower_thresh: int | None = None,
     upper_thresh: int | None = None,
+    kernel_size: int | None = None,
 ):
     """Segment a puzzle piece from the background using GrabCut.
 
@@ -30,6 +31,9 @@ def remove_background(
         background and GrabCut is initialized with ``cv2.GC_INIT_WITH_MASK``.
         If either value is ``None`` the rectangle based initialization is
         used instead.
+    kernel_size : int or None, optional
+        Size of the morphological kernel to clean up the resulting mask.
+        When ``None`` or less than 2 no morphology is applied.
     """
 
 
