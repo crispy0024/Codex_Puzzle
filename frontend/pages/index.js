@@ -10,6 +10,7 @@ export default function Home() {
   const [images, setImages] = useState([]);
   const [selected, setSelected] = useState([]);
   const [segments, setSegments] = useState({});
+  const [contours, setContours] = useState({});
   const [loading, setLoading] = useState(false);
   const [thresholdValue, setThresholdValue] = useState(128);
   const [blurValue, setBlurValue] = useState(0);
@@ -171,6 +172,29 @@ export default function Home() {
         }
       }
       setSegments((prev) => ({ ...prev, ...segs }));
+      setSelected([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const extractSelected = async () => {
+    setLoading(true);
+    try {
+      const outs = {};
+      for (const idx of selected) {
+        const form = new FormData();
+        form.append('image', images[idx].file, images[idx].name);
+        const res = await fetch('http://localhost:5000/extract_filtered_pieces', {
+          method: 'POST',
+          body: form,
+        });
+        const data = await res.json();
+        if (data && data.contours) {
+          outs[idx] = data.contours.map((c) => `data:image/png;base64,${c}`);
+        }
+      }
+      setContours((prev) => ({ ...prev, ...outs }));
       setSelected([]);
     } finally {
       setLoading(false);
@@ -379,6 +403,14 @@ export default function Home() {
         Segment Selected
       </button>
 
+      <button
+        onClick={extractSelected}
+        disabled={loading || selected.length === 0}
+        style={{ marginTop: '1rem', marginLeft: '1rem' }}
+      >
+        Extract Pieces
+      </button>
+
       <div style={{ marginTop: '1rem' }}>
         {images.map((img, idx) => (
           <div key={idx} style={{ marginBottom: '2rem' }}>
@@ -396,23 +428,40 @@ export default function Home() {
                 cursor: 'pointer',
               }}
             />
-            {segments[idx] && (
+            {(segments[idx] || contours[idx]) && (
               <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                {segments[idx].map((piece, pidx) => (
-                  <img
-                    key={pidx}
-                    src={piece}
-                    alt={`piece-${pidx}`}
-                    style={{
-                      width: '100px',
-                      height: '100px',
-                      objectFit: 'contain',
-                      marginRight: '0.5rem',
-                      marginBottom: '0.5rem',
-                      border: '1px solid #ccc',
-                    }}
-                  />
-                ))}
+                {segments[idx] &&
+                  segments[idx].map((piece, pidx) => (
+                    <img
+                      key={`seg-${pidx}`}
+                      src={piece}
+                      alt={`piece-${pidx}`}
+                      style={{
+                        width: '100px',
+                        height: '100px',
+                        objectFit: 'contain',
+                        marginRight: '0.5rem',
+                        marginBottom: '0.5rem',
+                        border: '1px solid #ccc',
+                      }}
+                    />
+                  ))}
+                {contours[idx] &&
+                  contours[idx].map((piece, pidx) => (
+                    <img
+                      key={`cnt-${pidx}`}
+                      src={piece}
+                      alt={`contour-${pidx}`}
+                      style={{
+                        width: '100px',
+                        height: '100px',
+                        objectFit: 'contain',
+                        marginRight: '0.5rem',
+                        marginBottom: '0.5rem',
+                        border: '1px solid #ccc',
+                      }}
+                    />
+                  ))}
               </div>
             )}
           </div>

@@ -301,6 +301,30 @@ def segment_pieces_metadata_endpoint():
     return jsonify({'pieces': outputs})
 
 
+@app.route('/extract_filtered_pieces', methods=['POST'])
+def extract_filtered_pieces_endpoint():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    file = request.files['image']
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    pieces = segment_pieces_metadata(img, min_area=100, margin=0, normalize=False)
+    outputs = []
+    for p in pieces:
+        canvas = np.zeros_like(p.image)
+        cnt = p.contour
+        if cnt.ndim == 2:
+            cnt = cnt[:, np.newaxis, :]
+        cv2.drawContours(canvas, [cnt], -1, (0, 255, 0), 2)
+        _, buf = cv2.imencode('.png', canvas)
+        outputs.append(base64.b64encode(buf).decode('utf-8'))
+
+    return jsonify({'contours': outputs})
+
+
 @app.route('/adjust_image', methods=['POST'])
 def adjust_image_endpoint():
     if 'image' not in request.files:
