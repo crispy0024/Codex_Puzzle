@@ -86,6 +86,32 @@ The dataclasses `EdgeFeatures` and `PieceFeatures` store these metrics for each
 piece. `extract_edge_descriptors` returns dictionaries containing the vectors for
 all four edges in order.
 
+## Piece Compatibility Scoring
+
+The `puzzle.scoring` module implements helpers to compare edges and rank
+potential matches.
+
+* `shape_similarity` – computes a distance between Hu moments from two edges.
+  A smaller value means the edge shapes are closer.
+* `color_similarity` – compares edge colors either by histogram or a simple HSV
+  profile.
+* `compatibility_score` – combines shape and color distances and returns a
+  single value, lower being a better fit.
+
+To evaluate all edges of a set of pieces you can call `top_n_matches` which
+returns the best candidate pairs per edge sorted by score.
+
+```python
+from puzzle.scoring import top_n_matches
+from puzzle.features import PieceFeatures, EdgeFeatures
+
+pieces = [PieceFeatures(...), PieceFeatures(...)]
+matches = top_n_matches(pieces, n=3)
+```
+
+Each entry in `matches` maps `(piece_id, edge_index)` to a list of matching
+`(other_piece_id, other_edge_index, score)` tuples.
+
 ## Additional Notes
 
 All puzzle processing endpoints are served from `server.py` using Flask on
