@@ -14,6 +14,12 @@ from puzzle.segmentation import (
 )
 from puzzle.features import extract_edge_descriptors
 
+COLOR_MAP = {
+    'red': (0, 0, 255),
+    'green': (0, 255, 0),
+    'blue': (255, 0, 0),
+}
+
 app = Flask(__name__)
 CORS(app)  # allow requests from the frontend
 
@@ -109,6 +115,42 @@ def segment_pieces_endpoint():
         outputs.append(base64.b64encode(buf).decode('utf-8'))
 
     return jsonify({'pieces': outputs})
+
+
+@app.route('/adjust_image', methods=['POST'])
+def adjust_image_endpoint():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    file = request.files['image']
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    try:
+        thresh_val = int(request.form.get('threshold', 128))
+    except ValueError:
+        thresh_val = 128
+    try:
+        blur_size = int(request.form.get('blur', 0))
+    except ValueError:
+        blur_size = 0
+    color_name = request.form.get('color', 'red').lower()
+    color = COLOR_MAP.get(color_name, (0, 0, 255))
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if blur_size > 0 and blur_size % 2 == 1:
+        gray = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
+
+    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+
+    color_layer = np.zeros_like(img)
+    color_layer[thresh == 255] = color
+    output = cv2.addWeighted(img, 0.7, color_layer, 0.3, 0)
+
+    _, buf = cv2.imencode('.png', output)
+    b64 = base64.b64encode(buf).decode('utf-8')
+    return jsonify({'image': b64})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

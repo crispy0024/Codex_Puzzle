@@ -36,3 +36,23 @@ def test_segment_pieces_endpoint():
     data = json.loads(response.data)
     assert 'pieces' in data
     assert len(data['pieces']) == 2
+
+
+def test_adjust_image_endpoint():
+    app = server.app
+    client = app.test_client()
+    img = np.full((10, 10, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (8, 8), (0, 0, 0), -1)
+    _, buf = cv2.imencode('.png', img)
+    response = client.post(
+        '/adjust_image',
+        data={
+            'image': (io.BytesIO(buf.tobytes()), 'test.png'),
+            'threshold': '100',
+            'blur': '3',
+            'color': 'green',
+        },
+    )
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'image' in data and len(data['image']) > 0
