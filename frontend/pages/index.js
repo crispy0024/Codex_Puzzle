@@ -11,6 +11,10 @@ export default function Home() {
   const [selected, setSelected] = useState([]);
   const [segments, setSegments] = useState({});
   const [loading, setLoading] = useState(false);
+  const [thresholdValue, setThresholdValue] = useState(128);
+  const [blurValue, setBlurValue] = useState(0);
+  const [colorValue, setColorValue] = useState('red');
+  const [adjustedImage, setAdjustedImage] = useState(null);
   const inputRef = useRef(null);
 
   const handleFiles = (newFiles) => {
@@ -114,6 +118,26 @@ export default function Home() {
     }
   };
 
+  const runAdjustImage = async () => {
+    setLoading(true);
+    try {
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('threshold', thresholdValue);
+      formData.append('blur', blurValue);
+      formData.append('color', colorValue);
+      const res = await fetch('http://localhost:5000/adjust_image', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data && data.image) setAdjustedImage(`data:image/png;base64,${data.image}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const segmentSelected = async () => {
     setLoading(true);
     try {
@@ -181,6 +205,40 @@ export default function Home() {
         <button onClick={runEdgeDescriptors} disabled={loading}>Edge Descriptors</button>
         <button onClick={runBatchRemoveBackground} disabled={loading}>Batch Remove Background</button>
         <button onClick={runSegmentPieces} disabled={loading}>Segment Pieces</button>
+        <button onClick={runAdjustImage} disabled={loading}>Manual Adjust</button>
+      </div>
+
+      <div style={{ marginTop: '1rem' }}>
+        <label>
+          Threshold:
+          <input
+            type="number"
+            value={thresholdValue}
+            onChange={(e) => setThresholdValue(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '60px' }}
+          />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Blur:
+          <input
+            type="number"
+            value={blurValue}
+            onChange={(e) => setBlurValue(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '60px' }}
+          />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Color:
+          <select
+            value={colorValue}
+            onChange={(e) => setColorValue(e.target.value)}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            <option value="red">Red</option>
+            <option value="green">Green</option>
+            <option value="blue">Blue</option>
+          </select>
+        </label>
       </div>
 
       {loading && <p style={{ marginTop: '1rem' }}>Processing...</p>}
@@ -220,6 +278,13 @@ export default function Home() {
         <div style={{ marginTop: '1rem' }}>
           <h3>Edge Descriptor Lengths</h3>
           <pre>{JSON.stringify(result.descriptors, null, 2)}</pre>
+        </div>
+      )}
+
+      {adjustedImage && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Adjusted Image</h3>
+          <img src={adjustedImage} alt="adjusted" style={{ maxWidth: '200px' }} />
         </div>
       )}
 
