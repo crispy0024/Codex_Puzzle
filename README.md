@@ -71,9 +71,10 @@ individually so you can inspect the output of every stage.
 ## Additional Notes
 
 All puzzle processing endpoints are served from `server.py` using Flask on
-port `5000`. The `Segment Pieces` button in the frontend calls the
-`/segment_pieces` route to split an image containing multiple pieces into
-individual crops.
+port `5000`. The `Segment Pieces` and `Segment Selected` buttons in the
+frontend call the `/segment_pieces` route to split an image containing
+multiple pieces into individual crops. Be sure to start the Flask server
+with `python server.py` before using the Next.js interface.
 
 
 

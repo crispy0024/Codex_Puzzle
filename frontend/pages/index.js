@@ -121,7 +121,7 @@ export default function Home() {
       selected.forEach((idx) => {
         form.append('files', images[idx].file, images[idx].name);
       });
-      const res = await fetch('http://localhost:8000/segment', {
+      const res = await fetch('http://localhost:5000/segment_pieces', {
         method: 'POST',
         body: form,
       });
