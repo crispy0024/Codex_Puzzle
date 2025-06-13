@@ -72,6 +72,20 @@ perform one step of the workflow:
 The included Next.js site provides buttons that call these endpoints
 individually so you can inspect the output of every stage.
 
+## Feature Extraction Pipeline
+
+Each puzzle edge is analyzed to produce several descriptors:
+
+- **Edge type** – labeled as `tab`, `hole` or `flat` by comparing the piece
+  contour to its convex hull.
+- **Color histogram** – HSV histogram sampled from a thin strip along the edge.
+- **Hu moments** – shape moments of the same edge segment capturing its curve.
+- **Color profile** – average HSV values across that strip.
+
+The dataclasses `EdgeFeatures` and `PieceFeatures` store these metrics for each
+piece. `extract_edge_descriptors` returns dictionaries containing the vectors for
+all four edges in order.
+
 ## Additional Notes
 
 All puzzle processing endpoints are served from `server.py` using Flask on
