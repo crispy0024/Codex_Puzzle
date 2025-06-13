@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 
 
 def remove_background(
+
     piece_img,
     iter_count: int = 5,
     rect_margin: int = 1,
@@ -12,11 +13,13 @@ def remove_background(
 ):
     """Segment a puzzle piece from the background using GrabCut.
 
+
     Parameters
     ----------
     piece_img : ndarray
         BGR image of a single puzzle piece.
     iter_count : int, optional
+
         Number of GrabCut iterations.
     rect_margin : int, optional
         Margin for the rectangle initialization when no thresholds are
@@ -28,6 +31,7 @@ def remove_background(
         If either value is ``None`` the rectangle based initialization is
         used instead.
     """
+
 
     mask = np.zeros(piece_img.shape[:2], dtype=np.uint8)
     bgd_model = np.zeros((1, 65), dtype=np.float64)
@@ -67,6 +71,12 @@ def remove_background(
         )
 
     mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype("uint8")
+
+    if kernel_size and kernel_size > 1:
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel)
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel)
+
     segmented = piece_img * mask2[:, :, np.newaxis]
     return mask2, segmented
 
