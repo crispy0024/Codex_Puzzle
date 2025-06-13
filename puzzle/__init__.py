@@ -23,6 +23,7 @@ from .scoring import (
     compatibility_score,
     top_n_matches,
 )
+from .group import PieceGroup, merge_groups, split_group
 
 __all__ = [
     "remove_background",
@@ -44,4 +45,7 @@ __all__ = [
     "color_similarity",
     "compatibility_score",
     "top_n_matches",
+    "PieceGroup",
+    "merge_groups",
+    "split_group",
 ]
