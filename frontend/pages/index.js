@@ -216,7 +216,6 @@ export default function Home() {
 
       <div className="buttons" style={{ marginTop: '1rem' }}>
         <button onClick={runRemoveBackground} disabled={loading}>Remove Background</button>
-        <button onClick={runRemoveBackground} disabled={loading}>Foreground Segmentation</button>
         <button onClick={runDetectCorners} disabled={loading}>Detect Corners</button>
         <button onClick={runClassifyPiece} disabled={loading}>Classify Piece</button>
         <button onClick={runEdgeDescriptors} disabled={loading}>Edge Descriptors</button>
