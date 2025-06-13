@@ -3,8 +3,33 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 
-def remove_background(piece_img, iter_count: int = 5, rect_margin: int = 1):
-    """Segment a puzzle piece from the background using GrabCut."""
+def remove_background(
+    piece_img, iter_count: int = 5, rect_margin: int = 1, kernel_size: int = 3
+):
+    """Segment a puzzle piece from the background using GrabCut.
+
+    After the GrabCut mask is created, the result is cleaned with a
+    morphological closing followed by an opening to remove small holes and
+    noise. The size of the structuring element controlling these operations is
+    configurable.
+
+    Parameters
+    ----------
+    piece_img : ndarray
+        BGR image of a single puzzle piece.
+    iter_count : int, optional
+        Number of GrabCut iterations to run.
+    rect_margin : int, optional
+        Margin in pixels around the piece when initializing GrabCut.
+    kernel_size : int, optional
+        Size of the square structuring element for morphological operations.
+
+    Returns
+    -------
+    tuple(ndarray, ndarray)
+        ``(mask, segmented_image)`` where ``mask`` is the cleaned binary mask
+        and ``segmented_image`` is the piece with background removed.
+    """
     mask = np.zeros(piece_img.shape[:2], dtype=np.uint8)
     bgd_model = np.zeros((1, 65), dtype=np.float64)
     fgd_model = np.zeros((1, 65), dtype=np.float64)
@@ -12,6 +37,12 @@ def remove_background(piece_img, iter_count: int = 5, rect_margin: int = 1):
     rect = (rect_margin, rect_margin, w - 2 * rect_margin, h - 2 * rect_margin)
     cv2.grabCut(piece_img, mask, rect, bgd_model, fgd_model, iter_count, cv2.GC_INIT_WITH_RECT)
     mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype("uint8")
+
+    if kernel_size and kernel_size > 1:
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_CLOSE, kernel)
+        mask2 = cv2.morphologyEx(mask2, cv2.MORPH_OPEN, kernel)
+
     segmented = piece_img * mask2[:, :, np.newaxis]
     return mask2, segmented
 
