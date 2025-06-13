@@ -4,7 +4,7 @@ import base64
 import cv2
 import numpy as np
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS  # enable Cross-Origin Resource Sharing
 
 from puzzle.segmentation import (
     remove_background,
@@ -16,7 +16,7 @@ from puzzle.segmentation import (
 from puzzle.features import extract_edge_descriptors
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # allow requests from the frontend
 
 @app.route('/remove_background', methods=['POST'])
 def remove_background_endpoint():
