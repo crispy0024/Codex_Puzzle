@@ -13,6 +13,7 @@ dependencies = [
     "pandas",
     "scikit-learn",
     "matplotlib",
+    "flask-cors",
 ]
 
 [tool.setuptools.packages.find]

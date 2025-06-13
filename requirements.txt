@@ -6,3 +6,4 @@ matplotlib
 fastapi
 uvicorn
 flask
+flask-cors
