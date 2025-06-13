@@ -8,7 +8,12 @@ from .segmentation import (
     segment_pieces_metadata,
     PuzzlePiece,
 )
-from .features import extract_edge_descriptors
+from .features import (
+    extract_edge_descriptors,
+    classify_edge_types,
+    EdgeFeatures,
+    PieceFeatures,
+)
 from .assembly import render_puzzle
 
 __all__ = [
@@ -21,5 +26,8 @@ __all__ = [
     "segment_pieces_metadata",
     "PuzzlePiece",
     "extract_edge_descriptors",
+    "classify_edge_types",
+    "EdgeFeatures",
+    "PieceFeatures",
     "render_puzzle",
 ]
