@@ -1,6 +1,12 @@
 import numpy as np
 import cv2
-from puzzle.segmentation import remove_background, select_four_corners, segment_pieces
+from puzzle.segmentation import (
+    remove_background,
+    select_four_corners,
+    segment_pieces,
+    segment_pieces_metadata,
+    PuzzlePiece,
+)
 
 
 def test_select_four_corners_returns_four():
@@ -45,3 +51,27 @@ def test_segment_pieces_preserves_separation_with_morphology():
     cv2.rectangle(img, (32, 2), (48, 18), (0, 0, 0), -1)
     pieces = segment_pieces(img, min_area=10, thresh_val=240, kernel_size=5)
     assert len(pieces) == 2
+
+
+def test_segment_pieces_metadata_returns_objects():
+    img = np.full((20, 40, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (18, 18), (0, 0, 0), -1)
+    pieces = segment_pieces_metadata(img, min_area=10)
+    assert all(isinstance(p, PuzzlePiece) for p in pieces)
+
+
+def test_segment_pieces_metadata_bbox_matches_contour():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (3, 3), (16, 16), (0, 0, 0), -1)
+    pieces = segment_pieces_metadata(img, min_area=10, margin=0, normalize=False)
+    assert len(pieces) == 1
+    piece = pieces[0]
+    bx, by, bw, bh = cv2.boundingRect(piece.contour)
+    assert piece.bbox == (bx, by, bw, bh)
+
+
+def test_segment_pieces_metadata_angle_zero_without_normalization():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (4, 2), (18, 16), (0, 0, 0), -1)
+    pieces = segment_pieces_metadata(img, min_area=10, normalize=False)
+    assert pieces[0].angle == 0.0

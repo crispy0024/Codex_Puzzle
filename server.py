@@ -11,6 +11,8 @@ from puzzle.segmentation import (
     select_four_corners,
     classify_piece_type,
     segment_pieces,
+    segment_pieces_metadata,
+    PuzzlePiece,
 )
 from puzzle.features import extract_edge_descriptors
 
@@ -189,6 +191,25 @@ def segment_pieces_endpoint():
     for p in pieces:
         _, buf = cv2.imencode('.png', p)
         outputs.append(base64.b64encode(buf).decode('utf-8'))
+
+    return jsonify({'pieces': outputs})
+
+
+@app.route('/segment_pieces_metadata', methods=['POST'])
+def segment_pieces_metadata_endpoint():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    file = request.files['image']
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return jsonify({'error': 'Invalid image'}), 400
+
+    pieces = segment_pieces_metadata(img)
+    outputs = []
+    for p in pieces:
+        _, buf = cv2.imencode('.png', p.image)
+        outputs.append({'image': base64.b64encode(buf).decode('utf-8'), 'bbox': p.bbox, 'angle': p.angle})
 
     return jsonify({'pieces': outputs})
 
