@@ -51,7 +51,8 @@ The site will be available at `http://localhost:3000`.
 ## Flask API
 
 A lightweight Flask application exposes puzzle utilities. The app uses
-`flask-cors` so the frontend can call the API from another origin. Start it with:
+`flask-cors` so the frontend can call the API from another origin. Make sure the
+`flask-cors` package is installed before launching the server. Start it with:
 
 ```bash
 python server.py
