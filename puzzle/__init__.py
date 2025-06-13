@@ -7,6 +7,7 @@ from .segmentation import (
     detect_orientation,
     rotate_piece,
     segment_pieces,
+    segment_pieces_by_median,
     segment_pieces_metadata,
     PuzzlePiece,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "detect_orientation",
     "rotate_piece",
     "segment_pieces",
+    "segment_pieces_by_median",
     "segment_pieces_metadata",
     "PuzzlePiece",
     "extract_edge_descriptors",

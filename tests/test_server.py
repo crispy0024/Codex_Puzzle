@@ -90,3 +90,17 @@ def test_compare_edges_endpoint():
     data = json.loads(response.data)
     assert 'score' in data
     assert isinstance(data['score'], (int, float))
+
+
+def test_extract_filtered_pieces_endpoint():
+    app = server.app
+    client = app.test_client()
+    img = np.full((40, 80, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (11, 11), (0, 0, 0), -1)
+    cv2.rectangle(img, (22, 2), (31, 11), (0, 0, 0), -1)
+    cv2.rectangle(img, (42, 2), (61, 21), (0, 0, 0), -1)
+    _, buf = cv2.imencode('.png', img)
+    response = client.post('/extract_filtered_pieces', data={'image': (io.BytesIO(buf.tobytes()), 't.png')})
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'pieces' in data and len(data['pieces']) == 2

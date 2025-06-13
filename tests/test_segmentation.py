@@ -5,6 +5,7 @@ from puzzle.segmentation import (
     remove_background,
     select_four_corners,
     segment_pieces,
+    segment_pieces_by_median,
     segment_pieces_metadata,
     detect_orientation,
     PuzzlePiece,
@@ -102,3 +103,23 @@ def test_rotated_piece_normalized_angle_correct():
     if rect[1][0] < rect[1][1]:
         ang += 90
     assert pytest.approx(ang % 90, abs=1) == 0
+
+
+def test_segment_pieces_by_median_filters_by_area():
+    img = np.full((40, 80, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (11, 11), (0, 0, 0), -1)
+    cv2.rectangle(img, (22, 2), (31, 11), (0, 0, 0), -1)
+    cv2.rectangle(img, (42, 2), (61, 21), (0, 0, 0), -1)
+    pieces = segment_pieces_by_median(img, thresh_val=240)
+    assert len(pieces) == 2
+
+
+def test_segment_pieces_by_median_returns_contour_only():
+    img = np.full((30, 30, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (14, 14), (0, 0, 0), -1)
+    pieces = segment_pieces_by_median(img, thresh_val=240)
+    assert len(pieces) == 1
+    piece = pieces[0]
+    gray = cv2.cvtColor(piece, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape
+    assert np.all(gray[1 : h - 1, 1 : w - 1] == 0)
