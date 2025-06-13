@@ -1,10 +1,12 @@
 import numpy as np
 import cv2
+import pytest
 from puzzle.segmentation import (
     remove_background,
     select_four_corners,
     segment_pieces,
     segment_pieces_metadata,
+    detect_orientation,
     PuzzlePiece,
 )
 
@@ -75,3 +77,28 @@ def test_segment_pieces_metadata_angle_zero_without_normalization():
     cv2.rectangle(img, (4, 2), (18, 16), (0, 0, 0), -1)
     pieces = segment_pieces_metadata(img, min_area=10, normalize=False)
     assert pieces[0].angle == 0.0
+
+
+def _rotated_mock_piece(angle):
+    base = np.full((30, 30, 3), 255, dtype=np.uint8)
+    cv2.rectangle(base, (6, 10), (24, 24), (0, 0, 0), -1)
+    M = cv2.getRotationMatrix2D((15, 15), angle, 1.0)
+    return cv2.warpAffine(base, M, (30, 30), borderValue=(255, 255, 255))
+
+
+def test_rotated_piece_normalized_angle_correct():
+    img = _rotated_mock_piece(45)
+    raw = segment_pieces_metadata(img, min_area=10, normalize=False)[0]
+    expected = detect_orientation(raw.contour)
+    pieces = segment_pieces_metadata(img, min_area=10)
+    assert len(pieces) == 1
+    piece = pieces[0]
+    assert pytest.approx(piece.angle, abs=1) == pytest.approx(expected, abs=1)
+    mask = cv2.cvtColor(piece.image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    rect = cv2.minAreaRect(cnts[0])
+    ang = rect[2]
+    if rect[1][0] < rect[1][1]:
+        ang += 90
+    assert pytest.approx(ang % 90, abs=1) == 0

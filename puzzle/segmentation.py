@@ -174,6 +174,58 @@ def classify_piece_type(mask, corners):
     return "middle"
 
 
+def detect_orientation(contour):
+    """Return the rotation angle that best aligns a contour upright."""
+    rect = cv2.minAreaRect(contour)
+    angle = rect[2]
+    if rect[1][0] < rect[1][1]:
+        angle += 90
+    return angle
+
+
+def rotate_piece(img, contour, angle):
+    """Rotate an image and associated contour by ``angle`` degrees."""
+    h, w = img.shape[:2]
+    center = (w / 2.0, h / 2.0)
+    rot_mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(
+        img, rot_mat, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+
+    cnt = contour
+    if cnt.ndim == 2:
+        cnt = cnt[:, np.newaxis, :]
+    rotated_cnt = cv2.transform(cnt.astype(np.float32), rot_mat).astype(np.int32)
+    return rotated, rotated_cnt
+
+
+def _validate_piece_orientation(img, contour, piece_type):
+    """Rotate by 90 degree increments until straight edges are axis aligned."""
+    if piece_type not in {"corner", "edge"}:
+        return img, contour, 0.0
+
+    applied = 0.0
+    for _ in range(4):
+        mask = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+        corners = select_four_corners(detect_piece_corners(thresh))
+        if len(corners) == 4:
+            flat_angles = []
+            for i in range(4):
+                a = corners[i]
+                b = corners[(i + 1) % 4]
+                if is_edge_straight(thresh, a, b, tolerance=0.98):
+                    ang = abs(np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0]))) % 180
+                    flat_angles.append(ang)
+            required = 2 if piece_type == "corner" else 1
+            hv_count = sum(ang < 15 or abs(ang - 90) < 15 for ang in flat_angles)
+            if hv_count >= required:
+                break
+        img, contour = rotate_piece(img, contour, 90)
+        applied += 90
+    return img, contour, applied % 360
+
+
 def segment_pieces(
     image,
     min_area: int = 1000,
@@ -260,10 +312,7 @@ def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normal
         if cv2.contourArea(cnt) < min_area:
             continue
 
-        rect = cv2.minAreaRect(cnt)
-        angle = rect[2]
-        if rect[1][0] < rect[1][1]:
-            angle += 90
+        angle = detect_orientation(cnt)
 
         x, y, w, h = cv2.boundingRect(cnt)
         x0 = max(x - margin, 0)
@@ -272,13 +321,25 @@ def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normal
         y1 = min(y + h + margin, h_img)
 
         crop = image[y0:y1, x0:x1].copy()
+        local_cnt = cnt - [x0, y0]
         applied_angle = 0.0
         if normalize:
-            rot_mat = cv2.getRotationMatrix2D(((x1 - x0) / 2, (y1 - y0) / 2), angle, 1.0)
-            crop = cv2.warpAffine(crop, rot_mat, (x1 - x0, y1 - y0), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+            crop, local_cnt = rotate_piece(crop, local_cnt, angle)
+            mask = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            _, m = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+            corners = select_four_corners(detect_piece_corners(m))
+            if len(corners) == 4:
+                piece_type = classify_piece_type(m, corners)
+                crop, local_cnt, extra = _validate_piece_orientation(crop, local_cnt, piece_type)
+                angle += extra
             applied_angle = angle
 
-        piece = PuzzlePiece(image=crop, contour=cnt, bbox=(x0, y0, x1 - x0, y1 - y0), angle=applied_angle if normalize else 0.0)
+        piece = PuzzlePiece(
+            image=crop,
+            contour=local_cnt if normalize else cnt,
+            bbox=(x0, y0, x1 - x0, y1 - y0),
+            angle=applied_angle if normalize else 0.0,
+        )
         pieces.append(piece)
 
     return pieces
