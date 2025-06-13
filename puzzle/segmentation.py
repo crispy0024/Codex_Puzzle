@@ -26,7 +26,19 @@ def detect_piece_corners(mask, max_corners: int = 20, quality_level: float = 0.0
 
 
 def select_four_corners(corner_pts):
-    """Cluster many corner candidates into four representative corners."""
+    """Reduce many detected corners to four cluster centers.
+
+    Parameters
+    ----------
+    corner_pts : ndarray of shape ``(n, 2)``
+        Candidate corner coordinates as ``(x, y)`` pairs.
+
+    Returns
+    -------
+    ndarray
+        Array of four ``(x, y)`` points when ``n >= 4`` otherwise the input
+        array is returned.
+    """
     if len(corner_pts) < 4:
         return corner_pts
     kmeans = KMeans(n_clusters=4, random_state=42).fit(corner_pts)
@@ -34,7 +46,24 @@ def select_four_corners(corner_pts):
 
 
 def is_edge_straight(mask, corner1, corner2, tolerance: float = 0.98, sample_points: int = 50):
-    """Check if the edge between two corners follows a straight boundary."""
+    """Check if the boundary between two corners is mostly straight.
+
+    Parameters
+    ----------
+    mask : ndarray
+        Binary ``(H, W)`` mask of the piece.
+    corner1, corner2 : array-like
+        End points ``(x, y)`` of the edge to test.
+    tolerance : float, optional
+        Minimum fraction of sampled points that must lie on ``mask``.
+    sample_points : int, optional
+        Number of points to sample along the edge.
+
+    Returns
+    -------
+    bool
+        ``True`` if the portion of points on the mask meets ``tolerance``.
+    """
     x1, y1 = corner1
     x2, y2 = corner2
     h, w = mask.shape
@@ -63,3 +92,38 @@ def classify_piece_type(mask, corners):
     elif straight_count == 1:
         return "edge"
     return "middle"
+
+
+def segment_pieces(image, min_area: int = 1000):
+    """Segment an image containing multiple puzzle pieces.
+
+    This utility performs a naive foreground extraction by thresholding
+    the image and returning a list of cropped piece images. It is not
+    perfect but works reasonably well when pieces are placed on a light
+    background.
+
+    Parameters
+    ----------
+    image : ndarray
+        BGR image that potentially contains many pieces.
+    min_area : int, optional
+        Minimum contour area to consider a region a puzzle piece.
+
+    Returns
+    -------
+    list[numpy.ndarray]
+        Cropped BGR images, one for each detected piece.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    pieces = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w * h < min_area:
+            continue
+        piece = image[y : y + h, x : x + w]
+        pieces.append(piece)
+
+    return pieces

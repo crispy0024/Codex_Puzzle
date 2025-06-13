@@ -16,9 +16,17 @@ The project requires Python 3.8+ with the packages listed in `requirements.txt`.
 ./setup.sh
 ```
 
+For contributors who want to hack on the code, install the package in editable
+mode so local changes are picked up automatically:
+
+```bash
+pip install -e .
+```
+
 ## Tests
 
-Simple unit tests are provided for the main utilities. Execute them with:
+Simple unit tests are provided for the main utilities. After installing the
+package in editable mode, run the tests with:
 
 ```bash
 pytest
@@ -39,7 +47,28 @@ npm run dev
 
 The site will be available at `http://localhost:3000`.
 
-When deploying to Vercel, set the **Root Directory** to `frontend/` so that the
-platform can detect the Next.js project and build it correctly.
+
+## Flask API
+
+A lightweight Flask application exposes puzzle utilities. Start it with:
+
+```bash
+python server.py
+```
+
+By default it runs on port 5000. Several endpoints are available that each
+perform one step of the workflow:
+
+- `/remove_background` – segment the puzzle piece and return the result and mask
+- `/detect_corners` – highlight detected corners on the piece
+- `/classify_piece` – return whether the piece is a corner, edge or middle piece
+- `/edge_descriptors` – compute simple metrics for each edge
+
+The included Next.js site provides buttons that call these endpoints
+individually so you can inspect the output of every stage.
 
 
+
+
+## License
+Released under the [MIT License](LICENSE).
