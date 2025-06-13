@@ -16,7 +16,15 @@ def test_remove_background_endpoint():
     client = app.test_client()
     img = np.full((10, 10, 3), 255, dtype=np.uint8)
     _, buf = cv2.imencode('.png', img)
-    response = client.post('/remove_background', data={'image': (io.BytesIO(buf.tobytes()), 'test.png')})
+    response = client.post(
+        '/remove_background',
+        data={
+            'image': (io.BytesIO(buf.tobytes()), 'test.png'),
+            'threshold_low': '240',
+            'threshold_high': '255',
+            'kernel_size': '3',
+        },
+    )
     assert response.status_code == 200
     data = json.loads(response.data)
     assert 'image' in data and 'mask' in data
