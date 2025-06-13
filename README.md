@@ -47,6 +47,7 @@ npm run dev
 
 The site will be available at `http://localhost:3000`.
 
+
 ## Flask API
 
 A lightweight Flask application exposes puzzle utilities. Start it with:
@@ -65,6 +66,7 @@ perform one step of the workflow:
 
 The included Next.js site provides buttons that call these endpoints
 individually so you can inspect the output of every stage.
+
 
 
 

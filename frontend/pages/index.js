@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 export default function Home() {
@@ -65,6 +66,7 @@ export default function Home() {
   return (
     <div className="container">
       <h1>Codex Puzzle</h1>
+
       <input type="file" multiple accept="image/*" onChange={handleFileChange} />
       <div className="buttons" style={{ marginTop: '1rem' }}>
         <button onClick={runRemoveBackground}>Remove Background</button>
@@ -81,6 +83,7 @@ export default function Home() {
             src={`data:image/png;base64,${result.remove.image}`}
             alt="segmented"
             style={{ maxWidth: '200px', marginRight: '1rem' }}
+
           />
           <img
             src={`data:image/png;base64,${result.remove.mask}`}
