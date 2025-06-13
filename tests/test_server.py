@@ -19,8 +19,8 @@ def test_remove_background_endpoint():
     response = client.post('/remove_background', data={'image': (io.BytesIO(buf.tobytes()), 'test.png')})
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert 'image' in data
-    assert len(data['image']) > 0
+    assert 'image' in data and 'mask' in data
+    assert len(data['image']) > 0 and len(data['mask']) > 0
 
 
 def test_segment_pieces_endpoint():

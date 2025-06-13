@@ -34,20 +34,25 @@ def remove_background_endpoint():
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
 
-    try:
-        lower = int(request.form.get('lower', -1))
-    except ValueError:
-        lower = -1
-    try:
-        upper = int(request.form.get('upper', -1))
-    except ValueError:
-        upper = -1
+    def _parse_int(name, default):
+        try:
+            return int(request.form.get(name, default))
+        except (TypeError, ValueError):
+            return default
+
+    lower = _parse_int('threshold_low', _parse_int('lower', -1))
+    upper = _parse_int('threshold_high', _parse_int('upper', -1))
+    kernel = _parse_int('kernel', 0)
 
     lower_thresh = lower if lower >= 0 else None
     upper_thresh = upper if upper >= 0 else None
+    kernel_size = kernel if kernel > 1 else None
 
     mask, result = remove_background(
-        img, lower_thresh=lower_thresh, upper_thresh=upper_thresh
+        img,
+        lower_thresh=lower_thresh,
+        upper_thresh=upper_thresh,
+        kernel_size=kernel_size,
     )
     _, buf = cv2.imencode('.png', result)
     result_b64 = base64.b64encode(buf).decode('utf-8')
