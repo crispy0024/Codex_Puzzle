@@ -117,20 +117,19 @@ export default function Home() {
   const segmentSelected = async () => {
     setLoading(true);
     try {
-      const form = new FormData();
-      selected.forEach((idx) => {
-        form.append('files', images[idx].file, images[idx].name);
-      });
-      const res = await fetch('http://localhost:5000/segment_pieces', {
-        method: 'POST',
-        body: form,
-      });
-      const data = await res.json();
       const segs = {};
-      data.results.forEach((resItem, i) => {
-        const idx = selected[i];
-        segs[idx] = resItem.pieces.map((p) => `data:image/png;base64,${p}`);
-      });
+      for (const idx of selected) {
+        const form = new FormData();
+        form.append('image', images[idx].file, images[idx].name);
+        const res = await fetch('http://localhost:5000/segment_pieces', {
+          method: 'POST',
+          body: form,
+        });
+        const data = await res.json();
+        if (data && data.pieces) {
+          segs[idx] = data.pieces.map((p) => `data:image/png;base64,${p}`);
+        }
+      }
       setSegments((prev) => ({ ...prev, ...segs }));
       setSelected([]);
     } finally {
