@@ -17,6 +17,11 @@ from .features import (
     PieceFeatures,
 )
 from .assembly import render_puzzle
+from .scoring import (
+    shape_similarity,
+    color_similarity,
+    compatibility_score,
+)
 
 __all__ = [
     "remove_background",
@@ -34,4 +39,7 @@ __all__ = [
     "EdgeFeatures",
     "PieceFeatures",
     "render_puzzle",
+    "shape_similarity",
+    "color_similarity",
+    "compatibility_score",
 ]
