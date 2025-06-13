@@ -64,3 +64,29 @@ def test_adjust_image_endpoint():
     assert response.status_code == 200
     data = json.loads(response.data)
     assert 'image' in data and len(data['image']) > 0
+
+
+def test_compare_edges_endpoint():
+    app = server.app
+    client = app.test_client()
+
+    img1 = np.full((50, 50, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img1, (5, 5), (45, 45), (0, 0, 0), -1)
+    img2 = np.full((50, 50, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img2, (5, 5), (45, 45), (0, 0, 0), -1)
+    _, buf1 = cv2.imencode('.png', img1)
+    _, buf2 = cv2.imencode('.png', img2)
+
+    response = client.post(
+        '/compare_edges',
+        data={
+            'image1': (io.BytesIO(buf1.tobytes()), 'p1.png'),
+            'image2': (io.BytesIO(buf2.tobytes()), 'p2.png'),
+            'edge1': '0',
+            'edge2': '0',
+        },
+    )
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'score' in data
+    assert isinstance(data['score'], (int, float))
