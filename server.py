@@ -42,7 +42,7 @@ def remove_background_endpoint():
 
     lower = _parse_int('threshold_low', _parse_int('lower', -1))
     upper = _parse_int('threshold_high', _parse_int('upper', -1))
-    kernel = _parse_int('kernel', 0)
+    kernel = _parse_int('kernel_size', _parse_int('kernel', 0))
 
     lower_thresh = lower if lower >= 0 else None
     upper_thresh = upper if upper >= 0 else None
