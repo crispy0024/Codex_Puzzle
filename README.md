@@ -42,4 +42,16 @@ The site will be available at `http://localhost:3000`.
 When deploying to Vercel, set the **Root Directory** to `frontend/` so that the
 platform can detect the Next.js project and build it correctly.
 
+## Python Backend
+
+A small FastAPI service is provided in `server.py` that exposes a `/segment`
+endpoint for puzzle piece segmentation. Start it with:
+
+```bash
+uvicorn server:app --reload
+```
+
+The frontend expects this service to run on `http://localhost:8000` when sending
+selected images for segmentation.
+
 

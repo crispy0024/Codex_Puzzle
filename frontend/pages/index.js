@@ -3,12 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 export default function Home() {
   const [images, setImages] = useState([]);
   const [selected, setSelected] = useState([]);
+  const [segments, setSegments] = useState({});
   const inputRef = useRef(null);
 
   const handleFiles = (files) => {
     const newImages = Array.from(files).map((file) => ({
       url: URL.createObjectURL(file),
       name: file.name,
+      file: file,
     }));
     setImages((prev) => [...prev, ...newImages]);
   };
@@ -21,6 +23,25 @@ export default function Home() {
   const handleDrop = (e) => {
     e.preventDefault();
     handleFiles(e.dataTransfer.files);
+  };
+
+  const segmentSelected = async () => {
+    const form = new FormData();
+    selected.forEach((idx) => {
+      form.append('files', images[idx].file, images[idx].name);
+    });
+    const res = await fetch('http://localhost:8000/segment', {
+      method: 'POST',
+      body: form,
+    });
+    const data = await res.json();
+    const segs = {};
+    data.results.forEach((resItem, i) => {
+      const idx = selected[i];
+      segs[idx] = resItem.pieces.map((p) => `data:image/png;base64,${p}`);
+    });
+    setSegments((prev) => ({ ...prev, ...segs }));
+    setSelected([]);
   };
 
   const toggleSelect = (idx) => {
@@ -62,25 +83,53 @@ export default function Home() {
         />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '1rem' }}>
+      <button
+        onClick={segmentSelected}
+        disabled={selected.length === 0}
+        style={{ marginTop: '1rem' }}
+      >
+        Segment Selected
+      </button>
+
+      <div style={{ marginTop: '1rem' }}>
         {images.map((img, idx) => (
-          <img
-            key={idx}
-            src={img.url}
-            alt={img.name}
-            onClick={() => toggleSelect(idx)}
-            style={{
-              width: '150px',
-              height: '150px',
-              objectFit: 'cover',
-              marginRight: '1rem',
-              marginBottom: '1rem',
-              border: selected.includes(idx)
-                ? '3px solid blue'
-                : '1px solid #ccc',
-              cursor: 'pointer',
-            }}
-          />
+          <div key={idx} style={{ marginBottom: '2rem' }}>
+            <img
+              src={img.url}
+              alt={img.name}
+              onClick={() => toggleSelect(idx)}
+              style={{
+                width: '150px',
+                height: '150px',
+                objectFit: 'cover',
+                marginRight: '1rem',
+                marginBottom: '1rem',
+                border: selected.includes(idx)
+                  ? '3px solid blue'
+                  : '1px solid #ccc',
+                cursor: 'pointer',
+              }}
+            />
+            {segments[idx] && (
+              <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                {segments[idx].map((piece, pidx) => (
+                  <img
+                    key={pidx}
+                    src={piece}
+                    alt={`piece-${pidx}`}
+                    style={{
+                      width: '100px',
+                      height: '100px',
+                      objectFit: 'contain',
+                      marginRight: '0.5rem',
+                      marginBottom: '0.5rem',
+                      border: '1px solid #ccc',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
