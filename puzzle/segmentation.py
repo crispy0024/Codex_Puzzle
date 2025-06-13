@@ -1,6 +1,17 @@
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
+from dataclasses import dataclass
+
+
+@dataclass
+class PuzzlePiece:
+    """Container for a segmented puzzle piece and its metadata."""
+
+    image: np.ndarray
+    contour: np.ndarray
+    bbox: tuple[int, int, int, int]
+    angle: float = 0.0
 
 
 def remove_background(
@@ -211,6 +222,63 @@ def segment_pieces(
         if w * h < min_area:
             continue
         piece = image[y : y + h, x : x + w]
+        pieces.append(piece)
+
+    return pieces
+
+
+def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normalize: bool = True):
+    """Segment puzzle pieces and return metadata for each piece.
+
+    Parameters
+    ----------
+    image : ndarray
+        BGR image containing puzzle pieces.
+    min_area : int, optional
+        Minimum contour area to consider a region a puzzle piece.
+    margin : int, optional
+        Extra pixels to include around the detected bounding box.
+    normalize : bool, optional
+        When ``True`` rotate each cropped piece using the angle from
+        ``cv2.minAreaRect`` so that it is axis aligned. The applied rotation
+        angle is stored in the returned :class:`PuzzlePiece` objects.
+
+    Returns
+    -------
+    list[PuzzlePiece]
+        Cropped pieces along with contour and bounding box metadata.
+    """
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    h_img, w_img = image.shape[:2]
+    pieces = []
+    for cnt in contours:
+        if cv2.contourArea(cnt) < min_area:
+            continue
+
+        rect = cv2.minAreaRect(cnt)
+        angle = rect[2]
+        if rect[1][0] < rect[1][1]:
+            angle += 90
+
+        x, y, w, h = cv2.boundingRect(cnt)
+        x0 = max(x - margin, 0)
+        y0 = max(y - margin, 0)
+        x1 = min(x + w + margin, w_img)
+        y1 = min(y + h + margin, h_img)
+
+        crop = image[y0:y1, x0:x1].copy()
+        applied_angle = 0.0
+        if normalize:
+            rot_mat = cv2.getRotationMatrix2D(((x1 - x0) / 2, (y1 - y0) / 2), angle, 1.0)
+            crop = cv2.warpAffine(crop, rot_mat, (x1 - x0, y1 - y0), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+            applied_angle = angle
+
+        piece = PuzzlePiece(image=crop, contour=cnt, bbox=(x0, y0, x1 - x0, y1 - y0), angle=applied_angle if normalize else 0.0)
         pieces.append(piece)
 
     return pieces

@@ -5,6 +5,8 @@ from .segmentation import (
     is_edge_straight,
     classify_piece_type,
     segment_pieces,
+    segment_pieces_metadata,
+    PuzzlePiece,
 )
 from .features import extract_edge_descriptors
 from .assembly import render_puzzle
@@ -16,6 +18,8 @@ __all__ = [
     "is_edge_straight",
     "classify_piece_type",
     "segment_pieces",
+    "segment_pieces_metadata",
+    "PuzzlePiece",
     "extract_edge_descriptors",
     "render_puzzle",
 ]
