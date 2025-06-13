@@ -67,17 +67,12 @@ perform one step of the workflow:
 The included Next.js site provides buttons that call these endpoints
 individually so you can inspect the output of every stage.
 
-## Python Backend
+## Additional Notes
 
-A small FastAPI service is provided in `server.py` that exposes a `/segment`
-endpoint for puzzle piece segmentation. Start it with:
-
-```bash
-uvicorn server:app --reload
-```
-
-The frontend expects this service to run on `http://localhost:8000` when sending
-selected images for segmentation.
+All puzzle processing endpoints are served from `server.py` using Flask on
+port `5000`. The `Segment Pieces` button in the frontend calls the
+`/segment_pieces` route to split an image containing multiple pieces into
+individual crops.
 
 
 

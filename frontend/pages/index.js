@@ -10,6 +10,7 @@ export default function Home() {
   const [images, setImages] = useState([]);
   const [selected, setSelected] = useState([]);
   const [segments, setSegments] = useState({});
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
 
   const handleFiles = (newFiles) => {
@@ -48,58 +49,93 @@ export default function Home() {
   };
 
   const runRemoveBackground = async () => {
-    const data = await postImage('remove_background');
-    if (data) setResult((r) => ({ ...r, remove: data }));
+    setLoading(true);
+    try {
+      const data = await postImage('remove_background');
+      if (data) setResult((r) => ({ ...r, remove: data }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runBatchRemoveBackground = async () => {
-    const outputs = [];
-    for (const imgFile of files) {
-      const data = await postImage('remove_background', imgFile);
-      if (data) {
-        outputs.push({ name: imgFile.name, data });
+    setLoading(true);
+    try {
+      const outputs = [];
+      for (const imgFile of files) {
+        const data = await postImage('remove_background', imgFile);
+        if (data) {
+          outputs.push({ name: imgFile.name, data });
+        }
       }
+      setBatchResults(outputs);
+    } finally {
+      setLoading(false);
     }
-    setBatchResults(outputs);
   };
 
   const runDetectCorners = async () => {
-    const data = await postImage('detect_corners');
-    if (data) setResult((r) => ({ ...r, corners: data }));
+    setLoading(true);
+    try {
+      const data = await postImage('detect_corners');
+      if (data) setResult((r) => ({ ...r, corners: data }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runClassifyPiece = async () => {
-    const data = await postImage('classify_piece');
-    if (data) setResult((r) => ({ ...r, type: data.type }));
+    setLoading(true);
+    try {
+      const data = await postImage('classify_piece');
+      if (data) setResult((r) => ({ ...r, type: data.type }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runEdgeDescriptors = async () => {
-    const data = await postImage('edge_descriptors');
-    if (data) setResult((r) => ({ ...r, descriptors: data.metrics }));
+    setLoading(true);
+    try {
+      const data = await postImage('edge_descriptors');
+      if (data) setResult((r) => ({ ...r, descriptors: data.metrics }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runSegmentPieces = async () => {
-    const data = await postImage('segment_pieces');
-    if (data && data.pieces) setPieces(data.pieces);
+    setLoading(true);
+    try {
+      const data = await postImage('segment_pieces');
+      if (data && data.pieces) setPieces(data.pieces);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const segmentSelected = async () => {
-    const form = new FormData();
-    selected.forEach((idx) => {
-      form.append('files', images[idx].file, images[idx].name);
-    });
-    const res = await fetch('http://localhost:8000/segment', {
-      method: 'POST',
-      body: form,
-    });
-    const data = await res.json();
-    const segs = {};
-    data.results.forEach((resItem, i) => {
-      const idx = selected[i];
-      segs[idx] = resItem.pieces.map((p) => `data:image/png;base64,${p}`);
-    });
-    setSegments((prev) => ({ ...prev, ...segs }));
-    setSelected([]);
+    setLoading(true);
+    try {
+      const form = new FormData();
+      selected.forEach((idx) => {
+        form.append('files', images[idx].file, images[idx].name);
+      });
+      const res = await fetch('http://localhost:8000/segment', {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      const segs = {};
+      data.results.forEach((resItem, i) => {
+        const idx = selected[i];
+        segs[idx] = resItem.pieces.map((p) => `data:image/png;base64,${p}`);
+      });
+      setSegments((prev) => ({ ...prev, ...segs }));
+      setSelected([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleSelect = (idx) => {
@@ -140,13 +176,15 @@ export default function Home() {
       </div>
 
       <div className="buttons" style={{ marginTop: '1rem' }}>
-        <button onClick={runRemoveBackground}>Remove Background</button>
-        <button onClick={runDetectCorners}>Detect Corners</button>
-        <button onClick={runClassifyPiece}>Classify Piece</button>
-        <button onClick={runEdgeDescriptors}>Edge Descriptors</button>
-        <button onClick={runBatchRemoveBackground}>Batch Remove Background</button>
-        <button onClick={runSegmentPieces}>Segment Pieces</button>
+        <button onClick={runRemoveBackground} disabled={loading}>Remove Background</button>
+        <button onClick={runDetectCorners} disabled={loading}>Detect Corners</button>
+        <button onClick={runClassifyPiece} disabled={loading}>Classify Piece</button>
+        <button onClick={runEdgeDescriptors} disabled={loading}>Edge Descriptors</button>
+        <button onClick={runBatchRemoveBackground} disabled={loading}>Batch Remove Background</button>
+        <button onClick={runSegmentPieces} disabled={loading}>Segment Pieces</button>
       </div>
+
+      {loading && <p style={{ marginTop: '1rem' }}>Processing...</p>}
 
       {result.remove && (
         <div style={{ marginTop: '1rem' }}>
@@ -225,7 +263,7 @@ export default function Home() {
 
       <button
         onClick={segmentSelected}
-        disabled={selected.length === 0}
+        disabled={loading || selected.length === 0}
         style={{ marginTop: '1rem' }}
       >
         Segment Selected
