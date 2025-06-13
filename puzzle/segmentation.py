@@ -3,14 +3,63 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 
-def remove_background(piece_img, iter_count: int = 5, rect_margin: int = 1):
-    """Segment a puzzle piece from the background using GrabCut."""
+def remove_background(
+    piece_img,
+    iter_count: int = 5,
+    rect_margin: int = 1,
+    lower_thresh: int | None = None,
+    upper_thresh: int | None = None,
+):
+    """Segment a puzzle piece from the background using GrabCut.
+
+    Parameters
+    ----------
+    piece_img : ndarray
+        BGR image of a single puzzle piece.
+    iter_count : int, optional
+        Number of GrabCut iterations.
+    rect_margin : int, optional
+        Margin for the rectangle initialization when no thresholds are
+        provided.
+    lower_thresh, upper_thresh : int or None, optional
+        Grayscale intensity bounds describing the background. When provided
+        an initial mask is created with pixels inside this range marked as
+        background and GrabCut is initialized with ``cv2.GC_INIT_WITH_MASK``.
+        If either value is ``None`` the rectangle based initialization is
+        used instead.
+    """
+
     mask = np.zeros(piece_img.shape[:2], dtype=np.uint8)
     bgd_model = np.zeros((1, 65), dtype=np.float64)
     fgd_model = np.zeros((1, 65), dtype=np.float64)
-    h, w = piece_img.shape[:2]
-    rect = (rect_margin, rect_margin, w - 2 * rect_margin, h - 2 * rect_margin)
-    cv2.grabCut(piece_img, mask, rect, bgd_model, fgd_model, iter_count, cv2.GC_INIT_WITH_RECT)
+
+    if lower_thresh is not None and upper_thresh is not None:
+        gray = cv2.cvtColor(piece_img, cv2.COLOR_BGR2GRAY)
+        thresh_mask = cv2.inRange(gray, lower_thresh, upper_thresh)
+        mask[thresh_mask == 255] = cv2.GC_BGD
+        mask[thresh_mask == 0] = cv2.GC_PR_FGD
+        cv2.grabCut(
+            piece_img,
+            mask,
+            None,
+            bgd_model,
+            fgd_model,
+            iter_count,
+            cv2.GC_INIT_WITH_MASK,
+        )
+    else:
+        h, w = piece_img.shape[:2]
+        rect = (rect_margin, rect_margin, w - 2 * rect_margin, h - 2 * rect_margin)
+        cv2.grabCut(
+            piece_img,
+            mask,
+            rect,
+            bgd_model,
+            fgd_model,
+            iter_count,
+            cv2.GC_INIT_WITH_RECT,
+        )
+
     mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype("uint8")
     segmented = piece_img * mask2[:, :, np.newaxis]
     return mask2, segmented

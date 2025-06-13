@@ -61,7 +61,7 @@ python server.py
 By default it runs on port 5000. Several endpoints are available that each
 perform one step of the workflow:
 
-- `/remove_background` – segment the puzzle piece and return the result and mask
+- `/remove_background` – segment the puzzle piece and return the result and mask. Optional `lower` and `upper` form fields provide grayscale thresholds for the background.
 - `/detect_corners` – highlight detected corners on the piece
 - `/classify_piece` – return whether the piece is a corner, edge or middle piece
 - `/edge_descriptors` – compute simple metrics for each edge

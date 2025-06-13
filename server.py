@@ -33,7 +33,22 @@ def remove_background_endpoint():
     img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
-    mask, result = remove_background(img)
+
+    try:
+        lower = int(request.form.get('lower', -1))
+    except ValueError:
+        lower = -1
+    try:
+        upper = int(request.form.get('upper', -1))
+    except ValueError:
+        upper = -1
+
+    lower_thresh = lower if lower >= 0 else None
+    upper_thresh = upper if upper >= 0 else None
+
+    mask, result = remove_background(
+        img, lower_thresh=lower_thresh, upper_thresh=upper_thresh
+    )
     _, buf = cv2.imencode('.png', result)
     result_b64 = base64.b64encode(buf).decode('utf-8')
     _, mask_buf = cv2.imencode('.png', mask * 255)
@@ -50,7 +65,21 @@ def detect_corners_endpoint():
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
-    mask, result = remove_background(img)
+
+    try:
+        lower = int(request.form.get('lower', -1))
+    except ValueError:
+        lower = -1
+    try:
+        upper = int(request.form.get('upper', -1))
+    except ValueError:
+        upper = -1
+    lower_thresh = lower if lower >= 0 else None
+    upper_thresh = upper if upper >= 0 else None
+
+    mask, result = remove_background(
+        img, lower_thresh=lower_thresh, upper_thresh=upper_thresh
+    )
     corners = detect_piece_corners(mask)
     four = select_four_corners(corners)
     overlay = result.copy()
@@ -70,7 +99,21 @@ def classify_piece_endpoint():
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
-    mask, _ = remove_background(img)
+
+    try:
+        lower = int(request.form.get('lower', -1))
+    except ValueError:
+        lower = -1
+    try:
+        upper = int(request.form.get('upper', -1))
+    except ValueError:
+        upper = -1
+    lower_thresh = lower if lower >= 0 else None
+    upper_thresh = upper if upper >= 0 else None
+
+    mask, _ = remove_background(
+        img, lower_thresh=lower_thresh, upper_thresh=upper_thresh
+    )
     corners = detect_piece_corners(mask)
     four = select_four_corners(corners)
     ptype = classify_piece_type(mask, four)
@@ -86,7 +129,21 @@ def edge_descriptors_endpoint():
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return jsonify({'error': 'Invalid image'}), 400
-    mask, _ = remove_background(img)
+
+    try:
+        lower = int(request.form.get('lower', -1))
+    except ValueError:
+        lower = -1
+    try:
+        upper = int(request.form.get('upper', -1))
+    except ValueError:
+        upper = -1
+    lower_thresh = lower if lower >= 0 else None
+    upper_thresh = upper if upper >= 0 else None
+
+    mask, _ = remove_background(
+        img, lower_thresh=lower_thresh, upper_thresh=upper_thresh
+    )
     corners = detect_piece_corners(mask)
     four = select_four_corners(corners)
     desc = extract_edge_descriptors(img, mask, four)
