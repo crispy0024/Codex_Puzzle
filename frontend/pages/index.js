@@ -15,6 +15,9 @@ export default function Home() {
   const [blurValue, setBlurValue] = useState(0);
   const [colorValue, setColorValue] = useState('red');
   const [adjustedImage, setAdjustedImage] = useState(null);
+  const [thresholdLow, setThresholdLow] = useState('');
+  const [thresholdHigh, setThresholdHigh] = useState('');
+  const [kernelSize, setKernelSize] = useState('');
   const inputRef = useRef(null);
 
   const handleFiles = (newFiles) => {
@@ -41,10 +44,15 @@ export default function Home() {
     handleFiles(e.dataTransfer.files);
   };
 
-  const postImage = async (endpoint, imageFile = file) => {
+  const postImage = async (endpoint, imageFile = file, extra = {}) => {
     if (!imageFile) return null;
     const formData = new FormData();
     formData.append('image', imageFile);
+    Object.entries(extra).forEach(([key, val]) => {
+      if (val !== '') {
+        formData.append(key, val);
+      }
+    });
     const res = await fetch(`http://localhost:5000/${endpoint}`, {
       method: 'POST',
       body: formData,
@@ -55,7 +63,11 @@ export default function Home() {
   const runRemoveBackground = async () => {
     setLoading(true);
     try {
-      const data = await postImage('remove_background');
+      const data = await postImage('remove_background', file, {
+        threshold_low: thresholdLow,
+        threshold_high: thresholdHigh,
+        kernel_size: kernelSize,
+      });
       if (data) setResult((r) => ({ ...r, remove: data }));
     } finally {
       setLoading(false);
@@ -67,7 +79,11 @@ export default function Home() {
     try {
       const outputs = [];
       for (const imgFile of files) {
-        const data = await postImage('remove_background', imgFile);
+        const data = await postImage('remove_background', imgFile, {
+          threshold_low: thresholdLow,
+          threshold_high: thresholdHigh,
+          kernel_size: kernelSize,
+        });
         if (data) {
           outputs.push({ name: imgFile.name, data });
         }
@@ -200,12 +216,43 @@ export default function Home() {
 
       <div className="buttons" style={{ marginTop: '1rem' }}>
         <button onClick={runRemoveBackground} disabled={loading}>Remove Background</button>
+        <button onClick={runRemoveBackground} disabled={loading}>Foreground Segmentation</button>
         <button onClick={runDetectCorners} disabled={loading}>Detect Corners</button>
         <button onClick={runClassifyPiece} disabled={loading}>Classify Piece</button>
         <button onClick={runEdgeDescriptors} disabled={loading}>Edge Descriptors</button>
         <button onClick={runBatchRemoveBackground} disabled={loading}>Batch Remove Background</button>
         <button onClick={runSegmentPieces} disabled={loading}>Segment Pieces</button>
         <button onClick={runAdjustImage} disabled={loading}>Manual Adjust</button>
+      </div>
+
+      <div style={{ marginTop: '1rem' }}>
+        <label>
+          Lower Threshold:
+          <input
+            type="number"
+            value={thresholdLow}
+            onChange={(e) => setThresholdLow(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '60px' }}
+          />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Upper Threshold:
+          <input
+            type="number"
+            value={thresholdHigh}
+            onChange={(e) => setThresholdHigh(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '60px' }}
+          />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Kernel Size:
+          <input
+            type="number"
+            value={kernelSize}
+            onChange={(e) => setKernelSize(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '60px' }}
+          />
+        </label>
       </div>
 
       <div style={{ marginTop: '1rem' }}>
