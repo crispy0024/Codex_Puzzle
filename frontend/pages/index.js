@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+
+import { useState } from 'react';
 
 export default function Home() {
+
   const [images, setImages] = useState([]);
   const [selected, setSelected] = useState([]);
   const [segments, setSegments] = useState({});
@@ -13,17 +15,25 @@ export default function Home() {
       file: file,
     }));
     setImages((prev) => [...prev, ...newImages]);
+
   };
 
-  const handleChange = (e) => {
-    handleFiles(e.target.files);
-    e.target.value = null;
+  const runRemoveBackground = async () => {
+    const data = await postImage('remove_background');
+    if (data) setResult((r) => ({ ...r, remove: data }));
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    handleFiles(e.dataTransfer.files);
+  const runBatchRemoveBackground = async () => {
+    const outputs = [];
+    for (const imgFile of files) {
+      const data = await postImage('remove_background', imgFile);
+      if (data) {
+        outputs.push({ name: imgFile.name, data });
+      }
+    }
+    setBatchResults(outputs);
   };
+
 
   const segmentSelected = async () => {
     const form = new FormData();
@@ -48,40 +58,45 @@ export default function Home() {
     setSelected((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
     );
+
   };
 
-  useEffect(() => {
-    return () => {
-      images.forEach((img) => URL.revokeObjectURL(img.url));
-    };
-  }, [images]);
+  const runClassifyPiece = async () => {
+    const data = await postImage('classify_piece');
+    if (data) setResult((r) => ({ ...r, type: data.type }));
+  };
+
+  const runEdgeDescriptors = async () => {
+    const data = await postImage('edge_descriptors');
+    if (data) setResult((r) => ({ ...r, descriptors: data.metrics }));
+  };
+
+  const runSegmentPieces = async () => {
+    const data = await postImage('segment_pieces');
+    if (data && data.pieces) setPieces(data.pieces);
+  };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+    <div className="container">
       <h1>Codex Puzzle</h1>
-      <p>Welcome to the puzzle application built with Next.js.</p>
 
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        style={{
-          border: '2px dashed #ccc',
-          padding: '2rem',
-          textAlign: 'center',
-          cursor: 'pointer',
-        }}
-      >
-        <p>Drag & drop images here, or click to select</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleChange}
-          style={{ display: 'none' }}
-        />
+      <input type="file" multiple accept="image/*" onChange={handleFileChange} />
+      <div className="buttons" style={{ marginTop: '1rem' }}>
+        <button onClick={runRemoveBackground}>Remove Background</button>
+        <button onClick={runDetectCorners}>Detect Corners</button>
+        <button onClick={runClassifyPiece}>Classify Piece</button>
+        <button onClick={runEdgeDescriptors}>Edge Descriptors</button>
+        <button onClick={runBatchRemoveBackground}>Batch Remove Background</button>
+        <button onClick={runSegmentPieces}>Segment Pieces</button>
       </div>
+      {result.remove && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Segmented Piece</h3>
+          <img
+            src={`data:image/png;base64,${result.remove.image}`}
+            alt="segmented"
+            style={{ maxWidth: '200px', marginRight: '1rem' }}
+
 
       <button
         onClick={segmentSelected}
@@ -132,6 +147,4 @@ export default function Home() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
+

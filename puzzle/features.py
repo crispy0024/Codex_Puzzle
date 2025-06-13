@@ -3,13 +3,45 @@ import numpy as np
 
 
 def _edge_strip_mask(mask, pt1, pt2, width):
-    """Create a binary mask for a strip along an edge defined by two points."""
+    """Return a mask for a line segment within a piece.
+
+    Parameters
+    ----------
+    mask : ndarray
+        Binary ``(H, W)`` mask of the piece where non-zero pixels are valid.
+    pt1, pt2 : array-like
+        End points of the edge segment ``(x, y)``.
+    width : int
+        Thickness in pixels of the strip to draw.
+
+    Returns
+    -------
+    ndarray
+        Binary mask of the same shape as ``mask`` with only the strip set.
+    """
     strip = np.zeros_like(mask, dtype=np.uint8)
     cv2.line(strip, tuple(pt1), tuple(pt2), color=1, thickness=width)
     return (strip & mask).astype(np.uint8)
 
 
 def _color_histogram(img, mask, bins=8):
+    """Calculate a normalized HSV histogram for the masked region.
+
+    Parameters
+    ----------
+    img : ndarray
+        Input BGR image.
+    mask : ndarray
+        Binary mask with the same height and width as ``img``.
+        Non-zero pixels indicate the area to sample.
+    bins : int, optional
+        Number of bins per HSV channel.
+
+    Returns
+    -------
+    ndarray
+        Flattened histogram vector.
+    """
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     hist = cv2.calcHist([hsv], [0, 1, 2], mask, [bins, bins, bins], [0, 180, 0, 256, 0, 256])
     cv2.normalize(hist, hist)
@@ -17,6 +49,21 @@ def _color_histogram(img, mask, bins=8):
 
 
 def _sift_descriptors(img, mask):
+    """Compute the mean SIFT descriptor within a masked region.
+
+    Parameters
+    ----------
+    img : ndarray
+        BGR image from which to extract features.
+    mask : ndarray
+        Binary ``(H, W)`` mask selecting pixels to consider.
+
+    Returns
+    -------
+    ndarray or None
+        Averaged descriptor vector or ``None`` if SIFT is unavailable or no
+        keypoints are detected.
+    """
     try:
         sift = cv2.SIFT_create()
     except AttributeError:
