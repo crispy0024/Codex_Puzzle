@@ -424,8 +424,6 @@ export default function Home() {
           ))}
         </div>
       )}
-
-      <div
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}

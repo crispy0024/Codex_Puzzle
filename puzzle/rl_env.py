@@ -2,16 +2,22 @@ import json
 import random
 from typing import Any, Dict, List
 
-import gymnasium as gym
-from gymnasium import spaces
+try:
+    import gymnasium as gym
+    from gymnasium import spaces
+except Exception:  # pragma: no cover - optional dependency
+    gym = None
+    spaces = None
 
 
-class PuzzleEnv(gym.Env):
+class PuzzleEnv(gym.Env if gym is not None else object):
     """Minimal environment using logged feedback as transitions."""
 
     metadata = {"render.modes": []}
 
     def __init__(self, feedback: List[Dict[str, Any]]):
+        if gym is None or spaces is None:
+            raise ImportError("gymnasium is required for PuzzleEnv")
         super().__init__()
         self.feedback = feedback
 

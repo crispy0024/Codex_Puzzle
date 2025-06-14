@@ -3,7 +3,10 @@ import os
 import logging
 from fastapi import APIRouter, BackgroundTasks
 import numpy as np
-from stable_baselines3 import PPO
+try:
+    from stable_baselines3 import PPO
+except Exception:  # pragma: no cover - optional dependency
+    PPO = None
 
 from ..rl_env import PuzzleEnv
 
@@ -21,6 +24,9 @@ def _load_rl_policy():
     global _policy, _rl_env, _state_to_idx
     if not USE_RL_MODEL:
         logger.info("RL policy disabled via USE_RL_MODEL=0")
+        return
+    if PPO is None:
+        logger.info("stable-baselines3 not installed, RL policy disabled")
         return
     model_path = "rl_model.zip"
     if not os.path.exists(model_path):
@@ -76,10 +82,16 @@ def rank_with_policy(state: dict, candidates: list[dict]) -> list[dict]:
 _load_rl_policy()
 
 # Background RL training
-from .. import train_rl
+try:
+    from .. import train_rl
+except Exception:  # pragma: no cover - optional dependency
+    train_rl = None
 
 
 def _train_model(timesteps: int = 1000):
+    if train_rl is None:
+        logger.info("RL training module not available")
+        return
     try:
         train_rl.main(total_timesteps=timesteps)
     except Exception:
