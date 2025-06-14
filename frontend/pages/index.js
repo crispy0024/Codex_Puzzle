@@ -19,6 +19,28 @@ export default function Home() {
   const [thresholdLow, setThresholdLow] = useState('');
   const [thresholdHigh, setThresholdHigh] = useState('');
   const [kernelSize, setKernelSize] = useState('');
+  // canvas with placed pieces and groups
+  const [canvasItems, setCanvasItems] = useState([]);
+
+  // load canvas layout from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('canvasLayout');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCanvasItems(parsed);
+        }
+      } catch (e) {
+        console.error('Failed to parse saved layout', e);
+      }
+    }
+  }, []);
+
+  // persist layout when it changes
+  useEffect(() => {
+    localStorage.setItem('canvasLayout', JSON.stringify(canvasItems));
+  }, [canvasItems]);
   const inputRef = useRef(null);
 
   const handleFiles = (newFiles) => {
@@ -201,6 +223,38 @@ export default function Home() {
     }
   };
 
+  const mergePieces = async (ids) => {
+    const res = await fetch('http://localhost:5000/merge_pieces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ piece_ids: ids }),
+    });
+    const data = await res.json();
+    if (data && data.id) {
+      setCanvasItems((prev) => {
+        const remaining = prev.filter((p) => !ids.includes(p.id));
+        return [
+          ...remaining,
+          {
+            id: data.id,
+            image: data.image,
+            x: data.x,
+            y: data.y,
+            type: 'group',
+          },
+        ];
+      });
+    }
+  };
+
+  const undoMerge = async () => {
+    const res = await fetch('http://localhost:5000/undo_merge', { method: 'POST' });
+    const data = await res.json();
+    if (data && Array.isArray(data.items)) {
+      setCanvasItems(data.items);
+    }
+  };
+
   const toggleSelect = (idx) => {
     setSelected((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
@@ -216,6 +270,30 @@ export default function Home() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Codex Puzzle</h1>
+
+      <div
+        style={{
+          position: 'relative',
+          width: '800px',
+          height: '600px',
+          border: '1px solid #ccc',
+          marginBottom: '1rem',
+        }}
+      >
+        {canvasItems.map((item) => (
+          <img
+            key={item.id}
+            src={`data:image/png;base64,${item.image}`}
+            alt={`item-${item.id}`}
+            style={{
+              position: 'absolute',
+              left: item.x,
+              top: item.y,
+              width: '100px',
+            }}
+          />
+        ))}
+      </div>
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
@@ -409,6 +487,18 @@ export default function Home() {
         style={{ marginTop: '1rem', marginLeft: '1rem' }}
       >
         Extract Pieces
+      </button>
+
+      <button
+        onClick={() => mergePieces(selected)}
+        disabled={loading || selected.length < 2}
+        style={{ marginTop: '1rem', marginLeft: '1rem' }}
+      >
+        Merge Selected
+      </button>
+
+      <button onClick={undoMerge} style={{ marginTop: '1rem', marginLeft: '1rem' }}>
+        Undo Merge
       </button>
 
       <div style={{ marginTop: '1rem' }}>

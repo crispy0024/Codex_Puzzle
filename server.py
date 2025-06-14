@@ -331,8 +331,8 @@ def segment_pieces_metadata_endpoint():
     return jsonify({'pieces': outputs})
 
 
-@app.route('/extract_filtered_pieces', methods=['POST'])
-def extract_filtered_pieces_endpoint():
+@app.route('/piece_contours', methods=['POST'])
+def piece_contours_endpoint():
     if 'image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
     file = request.files['image']
