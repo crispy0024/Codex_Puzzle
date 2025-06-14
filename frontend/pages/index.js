@@ -20,6 +20,8 @@ export default function Home() {
   const [thresholdLow, setThresholdLow] = useState('');
   const [thresholdHigh, setThresholdHigh] = useState('');
   const [kernelSize, setKernelSize] = useState('');
+  const [minArea, setMinArea] = useState('100');
+  const [contourCount, setContourCount] = useState(null);
   // canvas with placed pieces and groups
   const [canvasItems, setCanvasItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -153,8 +155,11 @@ export default function Home() {
   const runSegmentPieces = async () => {
     setLoading(true);
     try {
-      const data = await postImage('segment_pieces');
-      if (data && data.pieces) setPieces(data.pieces);
+      const data = await postImage('segment_pieces', file, { min_area: minArea });
+      if (data && data.pieces) {
+        setPieces(data.pieces);
+        setContourCount(data.num_contours);
+      }
     } finally {
       setLoading(false);
     }
@@ -187,6 +192,7 @@ export default function Home() {
       for (const idx of selected) {
         const form = new FormData();
         form.append('image', images[idx].file, images[idx].name);
+        form.append('min_area', minArea);
         const res = await fetch('http://localhost:5000/segment_pieces', {
           method: 'POST',
           body: form,
@@ -210,6 +216,7 @@ export default function Home() {
       for (const idx of selected) {
         const form = new FormData();
         form.append('image', images[idx].file, images[idx].name);
+        form.append('min_area', minArea);
         const res = await fetch('http://localhost:5000/extract_filtered_pieces', {
           method: 'POST',
           body: form,
@@ -484,6 +491,15 @@ export default function Home() {
             style={{ marginLeft: '0.5rem', width: '60px' }}
           />
         </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Min Area:
+          <input
+            type="number"
+            value={minArea}
+            onChange={(e) => setMinArea(e.target.value)}
+            style={{ marginLeft: '0.5rem', width: '80px' }}
+          />
+        </label>
       </div>
 
       <div style={{ marginTop: '1rem' }}>
@@ -590,6 +606,9 @@ export default function Home() {
       {pieces.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Segmented Pieces</h3>
+          {contourCount !== null && (
+            <p>Contours detected: {contourCount}</p>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
             {pieces.map((p, idx) => (
               <img

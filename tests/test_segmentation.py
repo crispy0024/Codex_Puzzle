@@ -23,7 +23,8 @@ def test_segment_pieces_detects_regions():
     img = np.full((20, 40, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (8, 18), (0, 0, 0), -1)
     cv2.rectangle(img, (22, 2), (38, 18), (0, 0, 0), -1)
-    pieces = segment_pieces(img, min_area=10)
+    pieces, num = segment_pieces(img, min_area=10)
+    assert num == 2
     assert len(pieces) == 2
 
 
@@ -53,7 +54,8 @@ def test_segment_pieces_preserves_separation_with_morphology():
     img = np.full((20, 50, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (18, 18), (0, 0, 0), -1)
     cv2.rectangle(img, (32, 2), (48, 18), (0, 0, 0), -1)
-    pieces = segment_pieces(img, min_area=10, thresh_val=240, kernel_size=5)
+    pieces, num = segment_pieces(img, min_area=10, thresh_val=240, kernel_size=5)
+    assert num == 2
     assert len(pieces) == 2
 
 

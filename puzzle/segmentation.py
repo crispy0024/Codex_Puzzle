@@ -300,8 +300,9 @@ def segment_pieces(
 
     Returns
     -------
-    list[numpy.ndarray]
-        Cropped BGR images, one for each detected piece.
+    tuple[list[numpy.ndarray], int]
+        Cropped BGR images and the number of detected contours before
+        filtering by ``min_area``.
     """
     thresh = apply_threshold(
         image,
@@ -317,6 +318,7 @@ def segment_pieces(
 
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+    num_contours = len(contours)
     pieces = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
@@ -325,11 +327,16 @@ def segment_pieces(
         piece = image[y : y + h, x : x + w]
         pieces.append(piece)
 
-    return pieces
+    return pieces, num_contours
 
 
 def segment_pieces_by_median(
-    image, thresh_val: int = 250, kernel_size: int = 3, method: str = "otsu", **params
+    image,
+    thresh_val: int = 250,
+    kernel_size: int = 3,
+    method: str = "otsu",
+    min_area: int = 0,
+    **params,
 ):
     """Segment pieces and filter by contour area around the median.
 
@@ -373,13 +380,19 @@ def segment_pieces_by_median(
     if not contours:
         return []
 
-    areas = [cv2.contourArea(c) for c in contours]
+    filtered = [
+        (c, cv2.contourArea(c)) for c in contours if cv2.contourArea(c) >= min_area
+    ]
+    if not filtered:
+        return []
+
+    areas = [a for _, a in filtered]
     median = float(np.median(areas))
     lower = 0.75 * median
     upper = 1.25 * median
 
     outputs = []
-    for cnt, area in zip(contours, areas):
+    for cnt, area in filtered:
         if area < lower or area > upper:
             continue
         x, y, w, h = cv2.boundingRect(cnt)
