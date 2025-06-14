@@ -16,8 +16,14 @@ from puzzle.segmentation import (
     segment_pieces_metadata,
     PuzzlePiece,
 )
-from puzzle.features import extract_edge_descriptors, classify_edge_types, EdgeFeatures
+from puzzle.features import (
+    extract_edge_descriptors,
+    classify_edge_types,
+    EdgeFeatures,
+    PieceFeatures,
+)
 from puzzle.scoring import compatibility_score
+from puzzle.group import PieceGroup, merge_groups
 
 COLOR_MAP = {
     'red': (0, 0, 255),
@@ -27,6 +33,14 @@ COLOR_MAP = {
 
 app = Flask(__name__)
 CORS(app)  # allow requests from the frontend
+
+# In-memory canvas layout holding individual pieces and groups. Each item
+# is a dictionary with keys: ``id``, ``group`` (PieceGroup), ``x`` and ``y``.
+canvas_items: list[dict] = []
+
+# Stack of merge operations for undo functionality. Each entry stores the new
+# item that replaced the merged pieces and the list of removed items.
+merge_history: list[tuple[dict, list[dict]]] = []
 
 @app.route('/remove_background', methods=['POST'])
 def remove_background_endpoint():
@@ -389,6 +403,66 @@ def adjust_image_endpoint():
     _, buf = cv2.imencode('.png', output)
     b64 = base64.b64encode(buf).decode('utf-8')
     return jsonify({'image': b64})
+
+
+@app.route('/merge_pieces', methods=['POST'])
+def merge_pieces_endpoint():
+    """Merge multiple canvas items into a single group."""
+    data = request.get_json(silent=True) or {}
+    piece_ids = data.get('piece_ids')
+    if not isinstance(piece_ids, list) or len(piece_ids) < 2:
+        return jsonify({'error': 'piece_ids must be list of at least 2'}), 400
+
+    items = [it for it in canvas_items if it['id'] in piece_ids]
+    if len(items) != len(piece_ids):
+        return jsonify({'error': 'invalid piece id'}), 400
+
+    # Merge groups sequentially; arbitrary edges (1 with 3) work for tests
+    merged_group = items[0]['group']
+    for it in items[1:]:
+        merged_group = merge_groups(merged_group, it['group'], 1, 3)
+
+    new_id = max([it['id'] for it in canvas_items] + [0]) + 1
+    new_item = {'id': new_id, 'group': merged_group, 'x': 0, 'y': 0, 'type': 'group'}
+
+    # Update canvas and history
+    remaining = [it for it in canvas_items if it['id'] not in piece_ids]
+    canvas_items.clear()
+    canvas_items.extend(remaining + [new_item])
+    merge_history.append((new_item, items))
+
+    img = np.dstack([merged_group.mask * 255] * 3)
+    _, buf = cv2.imencode('.png', img)
+    b64 = base64.b64encode(buf).decode('utf-8')
+
+    return jsonify({'id': new_id, 'image': b64, 'x': 0, 'y': 0, 'piece_ids': merged_group.piece_ids})
+
+
+@app.route('/undo_merge', methods=['POST'])
+def undo_merge_endpoint():
+    """Revert the last merge operation."""
+    if not merge_history:
+        # nothing to undo
+        items = []
+        for it in canvas_items:
+            img = np.dstack([it['group'].mask * 255] * 3)
+            _, buf = cv2.imencode('.png', img)
+            b64 = base64.b64encode(buf).decode('utf-8')
+            items.append({'id': it['id'], 'image': b64, 'x': it['x'], 'y': it['y'], 'type': it.get('type', 'group')})
+        return jsonify({'items': items})
+
+    new_item, old_items = merge_history.pop()
+    canvas_items.remove(new_item)
+    canvas_items.extend(old_items)
+
+    items = []
+    for it in canvas_items:
+        img = np.dstack([it['group'].mask * 255] * 3)
+        _, buf = cv2.imencode('.png', img)
+        b64 = base64.b64encode(buf).decode('utf-8')
+        items.append({'id': it['id'], 'image': b64, 'x': it['x'], 'y': it['y'], 'type': it.get('type', 'group')})
+
+    return jsonify({'items': items})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
