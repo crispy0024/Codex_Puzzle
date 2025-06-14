@@ -73,6 +73,18 @@ perform one step of the workflow:
 The included Next.js site provides buttons that call these endpoints
 individually so you can inspect the output of every stage.
 
+### Button Workflow
+
+1. **Extract & Clean** – isolates each puzzle piece with a blur and
+   morphology step.
+2. **Remove Background** – applies GrabCut to a single piece.
+3. **Detect Corners** – highlights the four main corners on the piece.
+4. **Classify Piece** – labels the piece as corner, edge or middle.
+5. **Edge Descriptors** – computes color and shape metrics for each edge.
+6. **Batch Remove Background** – runs background removal on all uploaded images.
+7. **Segment Pieces** – splits a full image containing many pieces.
+8. **Manual Adjust** – overlays a color mask using custom threshold settings.
+
 ## Feature Extraction Pipeline
 
 Each puzzle edge is analyzed to produce several descriptors:
