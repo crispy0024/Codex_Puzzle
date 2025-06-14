@@ -22,7 +22,7 @@ from puzzle.features import (
     EdgeFeatures,
     PieceFeatures,
 )
-from puzzle.scoring import compatibility_score
+from puzzle.scoring import compatibility_score, top_n_matches
 from puzzle.group import PieceGroup, merge_groups
 
 COLOR_MAP = {
@@ -463,6 +463,61 @@ def undo_merge_endpoint():
         items.append({'id': it['id'], 'image': b64, 'x': it['x'], 'y': it['y'], 'type': it.get('type', 'group')})
 
     return jsonify({'items': items})
+
+
+@app.route('/suggest_match', methods=['POST'])
+def suggest_match_endpoint():
+    """Return best matching edges for a target piece edge."""
+    data = request.get_json(silent=True) or {}
+    try:
+        piece_id = int(data.get('piece_id'))
+        edge_index = int(data.get('edge_index'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'invalid parameters'}), 400
+
+    id_to_idx = {it['id']: i for i, it in enumerate(canvas_items)}
+    if piece_id not in id_to_idx:
+        return jsonify({'error': 'invalid piece_id'}), 400
+    idx = id_to_idx[piece_id]
+
+    pieces = [it['group'].features for it in canvas_items]
+    if edge_index < 0 or edge_index >= len(pieces[idx].edges):
+        return jsonify({'error': 'edge_index out of range'}), 400
+
+    n = data.get('n', 5)
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        n = 5
+
+    matches = top_n_matches(pieces, n=n)
+    results = []
+    for op_idx, oe_idx, score in matches.get((idx, edge_index), []):
+        results.append({
+            'piece_id': canvas_items[op_idx]['id'],
+            'edge_index': oe_idx,
+            'score': score,
+        })
+
+    return jsonify({'matches': results})
+
+
+@app.route('/submit_feedback', methods=['POST'])
+def submit_feedback_endpoint():
+    """Append (state, action, reward) feedback to a log file."""
+    data = request.get_json(silent=True) or {}
+    if not all(k in data for k in ('state', 'action', 'reward')):
+        return jsonify({'error': 'missing fields'}), 400
+
+    entry = {
+        'state': data['state'],
+        'action': data['action'],
+        'reward': data['reward'],
+    }
+    with open('feedback.jsonl', 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
