@@ -291,3 +291,53 @@ async def compare_edges_endpoint(request: Request):
     )
     score = compatibility_score(e1, e2)
     return {"score": score}
+
+
+@router.post("/save_pieces")
+async def save_pieces_endpoint(request: Request):
+    """Persist cropped pieces and optional labels to disk."""
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+    pieces = payload.get("pieces")
+    if not isinstance(pieces, list) or not pieces:
+        return JSONResponse(status_code=400, content={"error": "pieces must be a list"})
+
+    import os
+    import uuid
+    from pathlib import Path
+
+    save_dir = Path(os.environ.get("PIECE_SAVE_DIR", "saved_pieces"))
+    save_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = save_dir / "metadata.json"
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                metadata = json.load(f)
+        except Exception:
+            metadata = []
+    else:
+        metadata = []
+
+    saved = []
+    for entry in pieces:
+        if not isinstance(entry, dict) or "image" not in entry:
+            continue
+        b64_str = entry["image"]
+        if b64_str.startswith("data:"):
+            b64_str = b64_str.split(",", 1)[-1]
+        try:
+            img_bytes = base64.b64decode(b64_str)
+        except Exception:
+            continue
+        fname = f"{uuid.uuid4().hex}.png"
+        with open(save_dir / fname, "wb") as f:
+            f.write(img_bytes)
+        metadata.append({"file": fname, "label": entry.get("label")})
+        saved.append(fname)
+
+    with open(meta_path, "w") as f:
+        json.dump(metadata, f)
+
+    return {"saved": saved}
