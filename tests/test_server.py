@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import io
 import json
+import base64
 
 import pathlib
 import puzzle.api as server
@@ -301,3 +302,27 @@ def test_additional_segmentation_endpoints():
     assert resp.status_code == 200
     data = resp.json()
     assert "metrics" in data and len(data["metrics"]) == 4
+
+
+def test_save_pieces_endpoint(tmp_path, monkeypatch):
+    app = server.app
+    client = TestClient(app)
+
+    monkeypatch.setenv("PIECE_SAVE_DIR", str(tmp_path))
+    img = np.full((10, 10, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (8, 8), (0, 0, 0), -1)
+    _, buf = cv2.imencode(".png", img)
+    b64 = base64.b64encode(buf).decode("utf-8")
+
+    response = client.post(
+        "/save_pieces",
+        json={"pieces": [{"image": b64, "label": "test"}]},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "saved" in data and len(data["saved"]) == 1
+
+    saved_file = tmp_path / data["saved"][0]
+    assert saved_file.exists()
+    meta = json.loads((tmp_path / "metadata.json").read_text())
+    assert meta[0]["label"] == "test"

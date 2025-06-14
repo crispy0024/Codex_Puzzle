@@ -7,6 +7,7 @@ export default function Home() {
   const [result, setResult] = useState({});
   const [batchResults, setBatchResults] = useState([]);
   const [pieces, setPieces] = useState([]);
+  const [pieceInfos, setPieceInfos] = useState([]);
 
   const [images, setImages] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -162,6 +163,7 @@ export default function Home() {
       });
       if (data && data.pieces) {
         setPieces(data.pieces);
+        setPieceInfos(data.pieces.map(() => ({ selected: false, label: '' })));
         setContourCount(data.num_contours);
       }
     } finally {
@@ -259,6 +261,39 @@ export default function Home() {
           },
         ];
       });
+    }
+  };
+
+  const togglePieceInfo = (idx) => {
+    setPieceInfos((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, selected: !it.selected } : it))
+    );
+  };
+
+  const changePieceLabel = (idx, val) => {
+    setPieceInfos((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, label: val } : it))
+    );
+  };
+
+  const saveSelectedPieces = async () => {
+    const payload = pieces
+      .map((p, idx) =>
+        pieceInfos[idx] && pieceInfos[idx].selected
+          ? { image: p, label: pieceInfos[idx].label }
+          : null
+      )
+      .filter(Boolean);
+    if (payload.length === 0) return;
+    setLoading(true);
+    try {
+      await fetch('http://localhost:5000/save_pieces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieces: payload }),
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -620,19 +655,45 @@ export default function Home() {
       {pieces.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Segmented Pieces</h3>
-          {contourCount !== null && (
-            <p>Contours detected: {contourCount}</p>
-          )}
-          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+          {contourCount !== null && <p>Contours detected: {contourCount}</p>}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, 120px)',
+              gap: '0.5rem',
+            }}
+          >
             {pieces.map((p, idx) => (
-              <img
-                key={idx}
-                src={`data:image/png;base64,${p}`}
-                alt={`piece-${idx}`}
-                style={{ maxWidth: '150px', marginRight: '1rem', marginBottom: '1rem' }}
-              />
+              <div key={idx} style={{ border: '1px solid #ccc', padding: '0.25rem' }}>
+                <img
+                  src={`data:image/png;base64,${p}`}
+                  alt={`piece-${idx}`}
+                  style={{ width: '100px', height: '100px', objectFit: 'contain' }}
+                />
+                <div>
+                  <input
+                    type="checkbox"
+                    checked={pieceInfos[idx]?.selected || false}
+                    onChange={() => togglePieceInfo(idx)}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="label"
+                  value={pieceInfos[idx]?.label || ''}
+                  onChange={(e) => changePieceLabel(idx, e.target.value)}
+                  style={{ width: '100%', marginTop: '0.25rem' }}
+                />
+              </div>
             ))}
           </div>
+          <button
+            onClick={saveSelectedPieces}
+            disabled={loading || !pieceInfos.some((p) => p.selected)}
+            style={{ marginTop: '0.5rem' }}
+          >
+            Save Selected
+          </button>
         </div>
       )}
 
