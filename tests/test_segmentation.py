@@ -4,6 +4,7 @@ import pytest
 from puzzle.segmentation import (
     remove_background,
     select_four_corners,
+    apply_threshold,
     segment_pieces,
     segment_pieces_by_median,
     segment_pieces_metadata,
@@ -123,3 +124,27 @@ def test_segment_pieces_by_median_returns_contour_only():
     gray = cv2.cvtColor(piece, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     assert np.all(gray[1 : h - 1, 1 : w - 1] == 0)
+
+
+def test_apply_threshold_otsu():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (15, 15), (0, 0, 0), -1)
+    out = apply_threshold(img, method="otsu")
+    assert out.shape == img.shape[:2]
+    assert out.max() == 255 and out.min() == 0
+
+
+def test_apply_threshold_adaptive():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (15, 15), (0, 0, 0), -1)
+    out = apply_threshold(img, method="adaptive", block_size=3, C=1)
+    assert out.shape == img.shape[:2]
+    assert out.dtype == np.uint8
+
+
+def test_apply_threshold_canny():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (15, 15), (0, 0, 0), -1)
+    out = apply_threshold(img, method="canny", threshold1=50, threshold2=100)
+    assert out.shape == img.shape[:2]
+    assert out.dtype == np.uint8

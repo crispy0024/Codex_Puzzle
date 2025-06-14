@@ -55,6 +55,11 @@ async def segment_pieces_endpoint(
     image: UploadFile = File(...),
     threshold: int = Form(250),
     kernel_size: int = Form(3),
+    method: str = Form("otsu"),
+    block_size: int | None = Form(None),
+    C: int | None = Form(None),
+    threshold1: int | None = Form(None),
+    threshold2: int | None = Form(None),
 ):
     data = await image.read()
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
@@ -65,6 +70,11 @@ async def segment_pieces_endpoint(
         min_area=100,
         thresh_val=threshold,
         kernel_size=kernel_size,
+        method=method,
+        block_size=block_size,
+        C=C,
+        threshold1=threshold1,
+        threshold2=threshold2,
     )
     outputs = []
     for p in pieces:
@@ -83,7 +93,11 @@ async def extract_filtered_pieces_endpoint(
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return JSONResponse(status_code=400, content={"error": "Invalid image"})
-    pieces = segment_pieces_by_median(img, thresh_val=threshold, kernel_size=kernel_size)
+    pieces = segment_pieces_by_median(
+        img,
+        thresh_val=threshold,
+        kernel_size=kernel_size,
+    )
     outputs = []
     for p in pieces:
         _, buf = cv2.imencode(".png", p)
@@ -156,9 +170,11 @@ async def edge_descriptors_endpoint(image: UploadFile = File(...)):
             {
                 "hist": d["hist"].tolist() if d["hist"] is not None else None,
                 "hu": d["hu"].tolist() if d["hu"] is not None else None,
-                "color_profile": d["color_profile"].tolist()
-                if d.get("color_profile") is not None
-                else None,
+                "color_profile": (
+                    d["color_profile"].tolist()
+                    if d.get("color_profile") is not None
+                    else None
+                ),
             }
         )
     return {"metrics": metrics}
@@ -174,7 +190,9 @@ async def compare_edges_endpoint(request: Request):
             d1 = json.loads(desc1_json)
             d2 = json.loads(desc2_json)
         except Exception:
-            return JSONResponse(status_code=400, content={"error": "Invalid descriptors"})
+            return JSONResponse(
+                status_code=400, content={"error": "Invalid descriptors"}
+            )
 
         def _from_desc(d):
             return EdgeFeatures(
@@ -182,8 +200,14 @@ async def compare_edges_endpoint(request: Request):
                 length=0.0,
                 angle=0.0,
                 hu_moments=np.array(d.get("hu")) if d.get("hu") is not None else None,
-                color_hist=np.array(d.get("hist")) if d.get("hist") is not None else None,
-                color_profile=np.array(d.get("color_profile")) if d.get("color_profile") is not None else None,
+                color_hist=(
+                    np.array(d.get("hist")) if d.get("hist") is not None else None
+                ),
+                color_profile=(
+                    np.array(d.get("color_profile"))
+                    if d.get("color_profile") is not None
+                    else None
+                ),
             )
 
         edge1 = _from_desc(d1)
@@ -215,10 +239,16 @@ async def compare_edges_endpoint(request: Request):
     corners1 = select_four_corners(detect_piece_corners(mask1))
     corners2 = select_four_corners(detect_piece_corners(mask2))
 
-    conts1, _ = cv2.findContours(mask1.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    conts2, _ = cv2.findContours(mask2.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    conts1, _ = cv2.findContours(
+        mask1.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    conts2, _ = cv2.findContours(
+        mask2.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
     if not conts1 or not conts2:
-        return JSONResponse(status_code=400, content={"error": "Unable to find contours"})
+        return JSONResponse(
+            status_code=400, content={"error": "Unable to find contours"}
+        )
     cont1 = max(conts1, key=cv2.contourArea)
     cont2 = max(conts2, key=cv2.contourArea)
 
@@ -228,7 +258,9 @@ async def compare_edges_endpoint(request: Request):
     descs2 = extract_edge_descriptors(img2, mask2, corners2)
 
     if idx1 >= len(descs1) or idx2 >= len(descs2):
-        return JSONResponse(status_code=400, content={"error": "Edge index out of range"})
+        return JSONResponse(
+            status_code=400, content={"error": "Edge index out of range"}
+        )
 
     def _make_edge(desc, label, pt1, pt2):
         length = float(np.hypot(pt2[0] - pt1[0], pt2[1] - pt1[1]))
@@ -239,10 +271,18 @@ async def compare_edges_endpoint(request: Request):
             angle=angle,
             hu_moments=np.array(desc["hu"]) if desc["hu"] is not None else None,
             color_hist=np.array(desc["hist"]) if desc["hist"] is not None else None,
-            color_profile=np.array(desc["color_profile"]) if desc["color_profile"] is not None else None,
+            color_profile=(
+                np.array(desc["color_profile"])
+                if desc["color_profile"] is not None
+                else None
+            ),
         )
 
-    e1 = _make_edge(descs1[idx1], labels1[idx1], corners1[idx1], corners1[(idx1 + 1) % 4])
-    e2 = _make_edge(descs2[idx2], labels2[idx2], corners2[idx2], corners2[(idx2 + 1) % 4])
+    e1 = _make_edge(
+        descs1[idx1], labels1[idx1], corners1[idx1], corners1[(idx1 + 1) % 4]
+    )
+    e2 = _make_edge(
+        descs2[idx2], labels2[idx2], corners2[idx2], corners2[(idx2 + 1) % 4]
+    )
     score = compatibility_score(e1, e2)
     return {"score": score}
