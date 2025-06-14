@@ -122,6 +122,17 @@ and opening step to smooth shapes and accepts optional `threshold` and
 `kernel_size` parameters. Be sure to start the Flask server with
 `python server.py` before using the Next.js interface.
 
+## Reinforcement Learning Trainer
+
+Feedback from the UI is stored in `feedback.jsonl`. To update the policy run:
+
+```bash
+python train_rl.py
+```
+
+This uses Stable Baselines3 to train a PPO model and saves the weights to
+`rl_model.zip`.
+
 
 
 

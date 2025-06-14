@@ -14,6 +14,8 @@ dependencies = [
     "scikit-learn",
     "matplotlib",
     "flask-cors",
+    "stable-baselines3",
+    "gymnasium",
 ]
 
 [tool.setuptools.packages.find]
