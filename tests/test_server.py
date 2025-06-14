@@ -130,6 +130,23 @@ def test_extract_filtered_pieces_endpoint():
     assert "pieces" in data and len(data["pieces"]) == 0
 
 
+def test_mask_contours_endpoint():
+    app = server.app
+    client = TestClient(app)
+    mask = np.zeros((20, 40), dtype=np.uint8)
+    cv2.rectangle(mask, (2, 2), (8, 18), 255, -1)
+    cv2.rectangle(mask, (22, 2), (38, 18), 255, -1)
+    _, buf = cv2.imencode(".png", mask)
+    response = client.post(
+        "/mask_contours", data={"image": (io.BytesIO(buf.tobytes()), "mask.png")}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "contours" in data and "num_contours" in data
+    assert data["num_contours"] == 2
+    assert len(data["contours"]) == 2
+
+
 def _dummy_features(size):
     h, w = size
     contour = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.int32)

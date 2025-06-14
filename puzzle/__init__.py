@@ -9,6 +9,7 @@ from .segmentation import (
     segment_pieces,
     segment_pieces_by_median,
     segment_pieces_metadata,
+    extract_mask_contours,
     PuzzlePiece,
 )
 from .features import (
@@ -37,6 +38,7 @@ __all__ = [
     "segment_pieces",
     "segment_pieces_by_median",
     "segment_pieces_metadata",
+    "extract_mask_contours",
     "PuzzlePiece",
     "extract_edge_descriptors",
     "classify_edge_types",

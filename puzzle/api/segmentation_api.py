@@ -13,6 +13,7 @@ from ..segmentation import (
     segment_pieces,
     segment_pieces_by_median,
     segment_pieces_metadata,
+    extract_mask_contours,
     PuzzlePiece,
 )
 from ..features import (
@@ -45,7 +46,8 @@ async def remove_background_endpoint(
     )
     _, buf = cv2.imencode(".png", result)
     result_b64 = base64.b64encode(buf).decode("utf-8")
-    _, mask_buf = cv2.imencode(".png", mask * 255)
+    inv = cv2.bitwise_not(mask * 255)
+    _, mask_buf = cv2.imencode(".png", inv)
     mask_b64 = base64.b64encode(mask_buf).decode("utf-8")
     return {"image": result_b64, "mask": mask_b64}
 
@@ -108,6 +110,21 @@ async def extract_filtered_pieces_endpoint(
         _, buf = cv2.imencode(".png", p)
         outputs.append(base64.b64encode(buf).decode("utf-8"))
     return {"pieces": outputs}
+
+
+@router.post("/mask_contours")
+async def mask_contours_endpoint(image: UploadFile = File(...)):
+    """Return contour crops from a mask and the number of detected contours."""
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    pieces, num = extract_mask_contours(img)
+    outputs = []
+    for p in pieces:
+        _, buf = cv2.imencode(".png", p)
+        outputs.append(base64.b64encode(buf).decode("utf-8"))
+    return {"contours": outputs, "num_contours": num}
 
 
 @router.post("/adjust_image")
