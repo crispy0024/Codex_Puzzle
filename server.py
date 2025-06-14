@@ -1,11 +1,15 @@
 
 import base64
 import json
+import os
+import logging
 import cv2
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # enable Cross-Origin Resource Sharing
+from stable_baselines3 import PPO
 
+from puzzle.rl_env import PuzzleEnv
 from puzzle.segmentation import (
     remove_background,
     detect_piece_corners,
@@ -33,6 +37,72 @@ COLOR_MAP = {
 
 app = Flask(__name__)
 CORS(app)  # allow requests from the frontend
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Optional RL policy for ranking suggestions
+USE_RL_MODEL = os.environ.get("USE_RL_MODEL", "1") == "1"
+_rl_env = None
+_policy = None
+_state_to_idx: dict[str, int] = {}
+
+def _load_rl_policy():
+    global _policy, _rl_env, _state_to_idx
+    if not USE_RL_MODEL:
+        logger.info("RL policy disabled via USE_RL_MODEL=0")
+        return
+    model_path = "rl_model.zip"
+    if not os.path.exists(model_path):
+        logger.info("RL model %s not found", model_path)
+        return
+    try:
+        feedback: list[dict] = []
+        if os.path.exists("feedback.jsonl"):
+            with open("feedback.jsonl") as f:
+                feedback = [json.loads(line) for line in f if line.strip()]
+        if feedback:
+            _rl_env = PuzzleEnv(feedback)
+            _state_to_idx = {s: i for i, s in enumerate(_rl_env._states)}
+            _policy = PPO.load("rl_model", env=_rl_env)
+        else:
+            _policy = PPO.load("rl_model")
+        logger.info("Loaded RL model from %s", model_path)
+    except Exception:  # pragma: no cover - load failures logged
+        logger.exception("Failed to load RL model")
+        _policy = None
+        _rl_env = None
+
+_load_rl_policy()
+
+def _rank_with_policy(state: dict, candidates: list[dict]) -> list[dict]:
+    """Return candidates reordered by RL policy if available."""
+    if _policy is None or _rl_env is None:
+        return candidates
+
+    key = json.dumps(state, sort_keys=True)
+    idx = _state_to_idx.get(key)
+    if idx is None:
+        logger.info("No policy state for %s", key)
+        return candidates
+
+    try:
+        action_idx, _ = _policy.predict(np.array([idx]), deterministic=True)
+        if isinstance(action_idx, np.ndarray):
+            action_idx = int(action_idx[0])
+        if 0 <= action_idx < len(_rl_env._actions):
+            chosen = _rl_env._actions[action_idx]
+            logger.info("Policy chose action %s", chosen)
+            for i, cand in enumerate(candidates):
+                cand_id = {'piece_id': cand['piece_id'], 'edge_index': cand['edge_index']}
+                if cand_id == chosen:
+                    if i != 0:
+                        candidates = [cand] + candidates[:i] + candidates[i+1:]
+                    break
+    except Exception:  # pragma: no cover - prediction failures logged
+        logger.exception("Policy ranking failed")
+
+    return candidates
 
 # In-memory canvas layout holding individual pieces and groups. Each item
 # is a dictionary with keys: ``id``, ``group`` (PieceGroup), ``x`` and ``y``.
@@ -480,6 +550,8 @@ def suggest_match_endpoint():
         return jsonify({'error': 'invalid piece_id'}), 400
     idx = id_to_idx[piece_id]
 
+    logger.info("Suggest match request for piece %s edge %s", piece_id, edge_index)
+
     pieces = [it['group'].features for it in canvas_items]
     if edge_index < 0 or edge_index >= len(pieces[idx].edges):
         return jsonify({'error': 'edge_index out of range'}), 400
@@ -498,6 +570,13 @@ def suggest_match_endpoint():
             'edge_index': oe_idx,
             'score': score,
         })
+
+    logger.info("Initial ranking: %s", results)
+
+    state = {'piece_id': piece_id, 'edge_index': edge_index}
+    results = _rank_with_policy(state, results)
+
+    logger.info("Final ranking: %s", results)
 
     return jsonify({'matches': results})
 
