@@ -67,3 +67,8 @@ img {
   font-size: 0.8rem;
   color: #555;
 }
+
+.status {
+  margin-top: 1rem;
+  font-style: italic;
+}
