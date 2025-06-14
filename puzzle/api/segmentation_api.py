@@ -56,6 +56,7 @@ async def segment_pieces_endpoint(
     threshold: int = Form(250),
     kernel_size: int = Form(3),
     method: str = Form("otsu"),
+    min_area: int = Form(0),
     block_size: int | None = Form(None),
     C: int | None = Form(None),
     threshold1: int | None = Form(None),
@@ -65,9 +66,9 @@ async def segment_pieces_endpoint(
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         return JSONResponse(status_code=400, content={"error": "Invalid image"})
-    pieces = segment_pieces(
+    pieces, num_contours = segment_pieces(
         img,
-        min_area=100,
+        min_area=min_area,
         thresh_val=threshold,
         kernel_size=kernel_size,
         method=method,
@@ -80,7 +81,7 @@ async def segment_pieces_endpoint(
     for p in pieces:
         _, buf = cv2.imencode(".png", p)
         outputs.append(base64.b64encode(buf).decode("utf-8"))
-    return {"pieces": outputs}
+    return {"pieces": outputs, "num_contours": num_contours}
 
 
 @router.post("/extract_filtered_pieces")
@@ -88,6 +89,7 @@ async def extract_filtered_pieces_endpoint(
     image: UploadFile = File(...),
     threshold: int = Form(250),
     kernel_size: int = Form(3),
+    min_area: int = Form(0),
 ):
     data = await image.read()
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
@@ -97,6 +99,7 @@ async def extract_filtered_pieces_endpoint(
         img,
         thresh_val=threshold,
         kernel_size=kernel_size,
+        min_area=min_area,
     )
     outputs = []
     for p in pieces:
