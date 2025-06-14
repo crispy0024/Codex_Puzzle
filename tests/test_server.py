@@ -3,17 +3,14 @@ import cv2
 import io
 import json
 
-import importlib.util
 import pathlib
-
-spec = importlib.util.spec_from_file_location("server", pathlib.Path(__file__).resolve().parents[1] / "server.py")
-server = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(server)
+import puzzle.api as server
+from fastapi.testclient import TestClient
 
 
 def test_remove_background_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
     img = np.full((10, 10, 3), 255, dtype=np.uint8)
     _, buf = cv2.imencode('.png', img)
     response = client.post(
@@ -26,14 +23,14 @@ def test_remove_background_endpoint():
         },
     )
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = response.json()
     assert 'image' in data and 'mask' in data
     assert len(data['image']) > 0 and len(data['mask']) > 0
 
 
 def test_segment_pieces_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
     # Create simple image with two black squares on white background
     img = np.full((20, 40, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (8, 18), (0, 0, 0), -1)
@@ -41,14 +38,14 @@ def test_segment_pieces_endpoint():
     _, buf = cv2.imencode('.png', img)
     response = client.post('/segment_pieces', data={'image': (io.BytesIO(buf.tobytes()), 'test.png')})
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = response.json()
     assert 'pieces' in data
     assert len(data['pieces']) == 2
 
 
 def test_adjust_image_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
     img = np.full((10, 10, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (8, 8), (0, 0, 0), -1)
     _, buf = cv2.imencode('.png', img)
@@ -62,13 +59,13 @@ def test_adjust_image_endpoint():
         },
     )
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = response.json()
     assert 'image' in data and len(data['image']) > 0
 
 
 def test_compare_edges_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
 
     img1 = np.full((50, 50, 3), 255, dtype=np.uint8)
     cv2.rectangle(img1, (5, 5), (45, 45), (0, 0, 0), -1)
@@ -87,14 +84,14 @@ def test_compare_edges_endpoint():
         },
     )
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = response.json()
     assert 'score' in data
     assert isinstance(data['score'], (int, float))
 
 
 def test_extract_filtered_pieces_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
     img = np.full((40, 80, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (11, 11), (0, 0, 0), -1)
     cv2.rectangle(img, (22, 2), (31, 11), (0, 0, 0), -1)
@@ -102,7 +99,7 @@ def test_extract_filtered_pieces_endpoint():
     _, buf = cv2.imencode('.png', img)
     response = client.post('/extract_filtered_pieces', data={'image': (io.BytesIO(buf.tobytes()), 't.png')})
     assert response.status_code == 200
-    data = json.loads(response.data)
+    data = response.json()
     assert 'pieces' in data and len(data['pieces']) == 2
 
 
@@ -125,7 +122,7 @@ def _dummy_features(size):
 
 def test_merge_and_undo_endpoints():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
 
     server.canvas_items.clear()
     server.merge_history.clear()
@@ -143,14 +140,14 @@ def test_merge_and_undo_endpoints():
 
     resp = client.post('/merge_pieces', json={'piece_ids': [1, 2]})
     assert resp.status_code == 200
-    data = json.loads(resp.data)
+    data = resp.json()
     assert 'id' in data and 'image' in data
     assert len(server.canvas_items) == 1
     assert server.canvas_items[0]['group'].piece_ids == [1, 2]
 
     resp2 = client.post('/undo_merge')
     assert resp2.status_code == 200
-    data2 = json.loads(resp2.data)
+    data2 = resp2.json()
     assert 'items' in data2 and len(data2['items']) == 2
     ids = sorted([it['id'] for it in server.canvas_items])
     assert ids == [1, 2]
@@ -178,7 +175,7 @@ def _piece(edges):
 
 def test_suggest_match_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
 
     server.canvas_items.clear()
     server.merge_history.clear()
@@ -203,7 +200,7 @@ def test_suggest_match_endpoint():
 
     resp = client.post("/suggest_match", json={"piece_id": 1, "edge_index": 0})
     assert resp.status_code == 200
-    data = json.loads(resp.data)
+    data = resp.json()
     assert "matches" in data and len(data["matches"]) > 0
     m = data["matches"][0]
     assert m["piece_id"] == 2 and m["edge_index"] == 0
@@ -211,7 +208,7 @@ def test_suggest_match_endpoint():
 
 def test_submit_feedback_endpoint():
     app = server.app
-    client = app.test_client()
+    client = TestClient(app)
 
     if pathlib.Path("feedback.jsonl").exists():
         pathlib.Path("feedback.jsonl").unlink()
