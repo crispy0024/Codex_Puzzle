@@ -133,6 +133,19 @@ python train_rl.py
 This uses Stable Baselines3 to train a PPO model and saves the weights to
 `rl_model.zip`.
 
+## Interactive Suggestion Loop
+
+1. Start the backend with `python server.py`.
+2. In another terminal run the frontend from `frontend/` using `npm run dev` and open `http://localhost:3000`.
+3. Select a piece on the canvas to request matches via the `/suggest_match` endpoint.
+4. Use the **Accept** or **Reject** buttons to send feedback through `/submit_feedback`.
+5. Periodically execute `python train_rl.py` (or call `/train_rl`) to refine the model with the logged feedback.
+
+## References
+
+- [Godot puzzle demo](https://github.com/godotengine/godot-demo-projects/tree/master/2d/puzzle) – example of snapping behaviour in a dedicated engine.
+- [Maxim Terleev’s article on jigsaw puzzle scoring](https://habr.com/ru/articles/197012/) – inspiration for improving edge matching heuristics.
+
 
 
 
