@@ -66,8 +66,9 @@ perform one step of the workflow:
 - `/classify_piece` – return whether the piece is a corner, edge or middle piece. Accepts the same `lower` and `upper` fields.
 - `/edge_descriptors` – compute simple metrics for each edge. Accepts the same `lower` and `upper` fields.
 - `/segment_pieces` – split an image containing several pieces into
-  individual crops. Optional `threshold` and `kernel_size` fields control the
-  binary threshold and smoothing kernel size used during detection.
+  individual crops. Optional `threshold`, `kernel_size` and `use_hull`
+  fields control the binary threshold, smoothing kernel size and whether
+  bounding boxes use the contour convex hull.
 
 The included Next.js site provides buttons that call these endpoints
 individually so you can inspect the output of every stage.
@@ -118,8 +119,8 @@ All puzzle processing endpoints are served from `server.py` using Flask on
 port `5000`. The `Segment Pieces` and `Segment Selected` buttons in the
 frontend call the `/segment_pieces` route to split an image containing
 multiple pieces into individual crops. The route now applies a closing
-and opening step to smooth shapes and accepts optional `threshold` and
-`kernel_size` parameters. Be sure to start the Flask server with
+and opening step to smooth shapes and accepts optional `threshold`,
+`kernel_size` and `use_hull` parameters. Be sure to start the Flask server with
 `python server.py` before using the Next.js interface.
 
 ## Reinforcement Learning Trainer

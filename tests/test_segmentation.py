@@ -59,6 +59,23 @@ def test_segment_pieces_preserves_separation_with_morphology():
     assert len(pieces) == 2
 
 
+def test_segment_pieces_use_hull():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    contour = np.array([[2, 2], [18, 2], [18, 10], [10, 10], [10, 18], [2, 18]])
+    cv2.drawContours(img, [contour], -1, (0, 0, 0), -1)
+    pieces1, _ = segment_pieces(img, min_area=10, use_hull=False)
+    pieces2, _ = segment_pieces(img, min_area=10, use_hull=True)
+    assert len(pieces1) == len(pieces2) == 1
+
+
+def test_segment_pieces_metadata_use_hull():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    contour = np.array([[2, 2], [18, 2], [18, 10], [10, 10], [10, 18], [2, 18]])
+    cv2.drawContours(img, [contour], -1, (0, 0, 0), -1)
+    pieces = segment_pieces_metadata(img, min_area=10, normalize=False, use_hull=True)
+    assert len(pieces) == 1 and isinstance(pieces[0], PuzzlePiece)
+
+
 def test_segment_pieces_metadata_returns_objects():
     img = np.full((20, 40, 3), 255, dtype=np.uint8)
     cv2.rectangle(img, (2, 2), (18, 18), (0, 0, 0), -1)

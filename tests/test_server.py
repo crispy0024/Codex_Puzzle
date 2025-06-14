@@ -51,6 +51,14 @@ def test_segment_pieces_endpoint():
     )
     data = response.json()
     assert len(data["pieces"]) == 0 and data["num_contours"] == 2
+    # ensure use_hull parameter is accepted
+    response = client.post(
+        "/segment_pieces",
+        data={"image": (io.BytesIO(buf.tobytes()), "test.png"), "use_hull": "true"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["pieces"]) == 2
 
 
 def test_adjust_image_endpoint():

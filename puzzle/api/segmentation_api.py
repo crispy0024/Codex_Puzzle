@@ -61,6 +61,7 @@ async def segment_pieces_endpoint(
     C: int | None = Form(None),
     threshold1: int | None = Form(None),
     threshold2: int | None = Form(None),
+    use_hull: bool = Form(False),
 ):
     data = await image.read()
     img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
@@ -72,6 +73,7 @@ async def segment_pieces_endpoint(
         thresh_val=threshold,
         kernel_size=kernel_size,
         method=method,
+        use_hull=use_hull,
         block_size=block_size,
         C=C,
         threshold1=threshold1,

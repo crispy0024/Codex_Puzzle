@@ -277,6 +277,7 @@ def segment_pieces(
     thresh_val: int = 250,
     kernel_size: int = 3,
     method: str = "otsu",
+    use_hull: bool = False,
     **params,
 ):
     """Segment an image containing multiple puzzle pieces.
@@ -297,6 +298,9 @@ def segment_pieces(
     kernel_size : int, optional
         Size of the morphological kernel applied to smooth ``thresh``. When
         less than ``2`` the morphology step is skipped.
+    use_hull : bool, optional
+        When ``True`` compute the convex hull of each contour before
+        extracting bounding boxes.
 
     Returns
     -------
@@ -321,7 +325,8 @@ def segment_pieces(
     num_contours = len(contours)
     pieces = []
     for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
+        box_cnt = cv2.convexHull(cnt) if use_hull else cnt
+        x, y, w, h = cv2.boundingRect(box_cnt)
         if w * h < min_area:
             continue
         piece = image[y : y + h, x : x + w]
@@ -405,7 +410,7 @@ def segment_pieces_by_median(
 
 
 def segment_pieces_metadata(
-    image, min_area: int = 1000, margin: int = 5, normalize: bool = True
+    image, min_area: int = 1000, margin: int = 5, normalize: bool = True, use_hull: bool = False
 ):
     """Segment puzzle pieces and return metadata for each piece.
 
@@ -421,6 +426,9 @@ def segment_pieces_metadata(
         When ``True`` rotate each cropped piece using the angle from
         ``cv2.minAreaRect`` so that it is axis aligned. The applied rotation
         angle is stored in the returned :class:`PuzzlePiece` objects.
+    use_hull : bool, optional
+        Compute the convex hull before extracting the bounding box when
+        ``True``.
 
     Returns
     -------
@@ -441,7 +449,8 @@ def segment_pieces_metadata(
 
         angle = detect_orientation(cnt)
 
-        x, y, w, h = cv2.boundingRect(cnt)
+        box_cnt = cv2.convexHull(cnt) if use_hull else cnt
+        x, y, w, h = cv2.boundingRect(box_cnt)
         x0 = max(x - margin, 0)
         y0 = max(y - margin, 0)
         x1 = min(x + w + margin, w_img)
