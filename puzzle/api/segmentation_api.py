@@ -116,6 +116,54 @@ async def adjust_image_endpoint(
     return {"image": b64}
 
 
+@router.post("/detect_corners")
+async def detect_corners_endpoint(image: UploadFile = File(...)):
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    mask, _ = remove_background(img)
+    corners = select_four_corners(detect_piece_corners(mask))
+    return {"corners": corners.tolist()}
+
+
+@router.post("/classify_piece")
+async def classify_piece_endpoint(image: UploadFile = File(...)):
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    mask, _ = remove_background(img)
+    corners = select_four_corners(detect_piece_corners(mask))
+    if len(corners) < 4:
+        return {"type": "unknown"}
+    piece_type = classify_piece_type(mask, corners)
+    return {"type": piece_type}
+
+
+@router.post("/edge_descriptors")
+async def edge_descriptors_endpoint(image: UploadFile = File(...)):
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    mask, _ = remove_background(img)
+    corners = select_four_corners(detect_piece_corners(mask))
+    descs = extract_edge_descriptors(img, mask, corners)
+    metrics = []
+    for d in descs:
+        metrics.append(
+            {
+                "hist": d["hist"].tolist() if d["hist"] is not None else None,
+                "hu": d["hu"].tolist() if d["hu"] is not None else None,
+                "color_profile": d["color_profile"].tolist()
+                if d.get("color_profile") is not None
+                else None,
+            }
+        )
+    return {"metrics": metrics}
+
+
 @router.post("/compare_edges")
 async def compare_edges_endpoint(request: Request):
     form = await request.form()
