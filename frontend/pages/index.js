@@ -24,6 +24,7 @@ export default function Home() {
   const [types, setTypes] = useState({});
   const [descs, setDescs] = useState({});
   const [manualImg, setManualImg] = useState(null);
+  const [status, setStatus] = useState("");
 
   const handleFile = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -33,6 +34,7 @@ export default function Home() {
 
   const segmentPieces = async () => {
     if (!inputFile) return;
+    setStatus("Segmenting pieces...");
     const form = new FormData();
     form.append("image", inputFile);
     const res = await fetch(`${API_URL}/segment_pieces`, {
@@ -47,12 +49,17 @@ export default function Home() {
         originalId: i,
       }));
       setPieces(out);
+      setStatus("Extraction complete");
+    } else {
+      setStatus("No pieces found");
     }
   };
 
   const removeBackground = async () => {
     const outputs = [];
-    for (const p of pieces) {
+    for (let i = 0; i < pieces.length; i++) {
+      const p = pieces[i];
+      setStatus(`Removing background (${i + 1}/${pieces.length})...`);
       const blob = await (await fetch(p.src)).blob();
       const form = new FormData();
       form.append("image", blob, "piece.png");
@@ -69,11 +76,14 @@ export default function Home() {
       });
     }
     setBgPieces(outputs);
+    setStatus("Background removal complete");
   };
 
   const detectCorners = async () => {
     const cdata = {};
-    for (const p of bgPieces) {
+    for (let i = 0; i < bgPieces.length; i++) {
+      const p = bgPieces[i];
+      setStatus(`Detecting corners (${i + 1}/${bgPieces.length})...`);
       const blob = await (await fetch(p.src)).blob();
       const form = new FormData();
       form.append("image", blob, "piece.png");
@@ -85,11 +95,14 @@ export default function Home() {
       cdata[p.id] = d.corners;
     }
     setCorners(cdata);
+    setStatus("Corner detection complete");
   };
 
   const classifyPieces = async () => {
     const pdata = {};
-    for (const p of bgPieces) {
+    for (let i = 0; i < bgPieces.length; i++) {
+      const p = bgPieces[i];
+      setStatus(`Classifying pieces (${i + 1}/${bgPieces.length})...`);
       const blob = await (await fetch(p.src)).blob();
       const form = new FormData();
       form.append("image", blob, "piece.png");
@@ -101,11 +114,14 @@ export default function Home() {
       pdata[p.id] = d.type;
     }
     setTypes(pdata);
+    setStatus("Classification complete");
   };
 
   const edgeDescriptors = async () => {
     const edata = {};
-    for (const p of bgPieces) {
+    for (let i = 0; i < bgPieces.length; i++) {
+      const p = bgPieces[i];
+      setStatus(`Computing descriptors (${i + 1}/${bgPieces.length})...`);
       const blob = await (await fetch(p.src)).blob();
       const form = new FormData();
       form.append("image", blob, "piece.png");
@@ -117,10 +133,12 @@ export default function Home() {
       edata[p.id] = d.metrics;
     }
     setDescs(edata);
+    setStatus("Descriptor computation complete");
   };
 
   const manualAdjust = async () => {
     if (!inputFile) return;
+    setStatus("Adjusting image...");
     const form = new FormData();
     form.append("image", inputFile);
     const res = await fetch(`${API_URL}/adjust_image`, {
@@ -129,6 +147,7 @@ export default function Home() {
     });
     const data = await res.json();
     setManualImg(`data:image/png;base64,${data.image}`);
+    setStatus("Adjustment complete");
   };
 
   return (
@@ -198,6 +217,7 @@ export default function Home() {
         <button onClick={manualAdjust}>Adjust</button>
         {manualImg && <img src={manualImg} alt="adjusted" />}
       </section>
+      {status && <p className="status">{status}</p>}
     </div>
   );
 }
