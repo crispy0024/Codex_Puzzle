@@ -21,6 +21,7 @@ export default function Home() {
   const [thresholdHigh, setThresholdHigh] = useState('');
   const [kernelSize, setKernelSize] = useState('');
   const [minArea, setMinArea] = useState('100');
+  const [useHull, setUseHull] = useState(false);
   const [contourCount, setContourCount] = useState(null);
   // canvas with placed pieces and groups
   const [canvasItems, setCanvasItems] = useState([]);
@@ -155,7 +156,10 @@ export default function Home() {
   const runSegmentPieces = async () => {
     setLoading(true);
     try {
-      const data = await postImage('segment_pieces', file, { min_area: minArea });
+      const data = await postImage('segment_pieces', file, {
+        min_area: minArea,
+        use_hull: useHull,
+      });
       if (data && data.pieces) {
         setPieces(data.pieces);
         setContourCount(data.num_contours);
@@ -193,6 +197,7 @@ export default function Home() {
         const form = new FormData();
         form.append('image', images[idx].file, images[idx].name);
         form.append('min_area', minArea);
+        form.append('use_hull', useHull);
         const res = await fetch('http://localhost:5000/segment_pieces', {
           method: 'POST',
           body: form,
@@ -499,6 +504,15 @@ export default function Home() {
             onChange={(e) => setMinArea(e.target.value)}
             style={{ marginLeft: '0.5rem', width: '80px' }}
           />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          <input
+            type="checkbox"
+            checked={useHull}
+            onChange={(e) => setUseHull(e.target.checked)}
+            style={{ marginRight: '0.25rem' }}
+          />
+          Use Hull
         </label>
       </div>
 
