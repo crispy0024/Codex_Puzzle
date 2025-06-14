@@ -409,6 +409,49 @@ def segment_pieces_by_median(
     return outputs
 
 
+def extract_mask_contours(mask, area_ratio: float = 0.25):
+    """Return contour crops from a binary mask exceeding ``area_ratio`` of the
+    median area.
+
+    Parameters
+    ----------
+    mask : ndarray
+        Binary image where puzzle pieces are white (non-zero).
+    area_ratio : float, optional
+        Fraction of the median area used as the cutoff for filtering.
+
+    Returns
+    -------
+    tuple[list[numpy.ndarray], int]
+        Cropped contour images and the total number of detected contours.
+    """
+
+    if mask.ndim == 3:
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    binary = (mask > 0).astype("uint8")
+
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    num_contours = len(contours)
+    if not contours:
+        return [], num_contours
+
+    areas = [cv2.contourArea(c) for c in contours]
+    median = float(np.median(areas))
+    threshold = area_ratio * median
+
+    outputs = []
+    for cnt in contours:
+        if cv2.contourArea(cnt) < threshold:
+            continue
+        x, y, w, h = cv2.boundingRect(cnt)
+        blank = np.zeros((h, w, 3), dtype=np.uint8)
+        local = cnt - [x, y]
+        cv2.drawContours(blank, [local], -1, (255, 255, 255), 1)
+        outputs.append(blank)
+
+    return outputs, num_contours
+
+
 def segment_pieces_metadata(
     image, min_area: int = 1000, margin: int = 5, normalize: bool = True, use_hull: bool = False
 ):

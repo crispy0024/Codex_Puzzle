@@ -9,6 +9,7 @@ from puzzle.segmentation import (
     segment_pieces_by_median,
     segment_pieces_metadata,
     detect_orientation,
+    extract_mask_contours,
     PuzzlePiece,
 )
 
@@ -167,3 +168,13 @@ def test_apply_threshold_canny():
     out = apply_threshold(img, method="canny", threshold1=50, threshold2=100)
     assert out.shape == img.shape[:2]
     assert out.dtype == np.uint8
+
+
+def test_extract_mask_contours_filters_by_area():
+    mask = np.zeros((40, 80), dtype=np.uint8)
+    cv2.rectangle(mask, (2, 2), (11, 11), 255, -1)
+    cv2.rectangle(mask, (22, 2), (31, 11), 255, -1)
+    cv2.rectangle(mask, (42, 2), (45, 5), 255, -1)
+    pieces, num = extract_mask_contours(mask)
+    assert num == 3
+    assert len(pieces) == 2
