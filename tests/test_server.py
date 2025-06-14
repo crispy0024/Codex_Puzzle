@@ -154,3 +154,77 @@ def test_merge_and_undo_endpoints():
     assert 'items' in data2 and len(data2['items']) == 2
     ids = sorted([it['id'] for it in server.canvas_items])
     assert ids == [1, 2]
+
+
+def _edge(edge_type, hu, color):
+    return server.EdgeFeatures(
+        edge_type=edge_type,
+        length=1.0,
+        angle=0.0,
+        hu_moments=np.array(hu, dtype=np.float32),
+        color_hist=None,
+        color_profile=np.array(color, dtype=np.float32),
+    )
+
+
+def _piece(edges):
+    return server.PieceFeatures(
+        contour=np.zeros((1, 2), dtype=np.int32),
+        area=0.0,
+        bbox=(0, 0, 1, 1),
+        edges=edges,
+    )
+
+
+def test_suggest_match_endpoint():
+    app = server.app
+    client = app.test_client()
+
+    server.canvas_items.clear()
+    server.merge_history.clear()
+
+    mask = np.ones((5, 5), dtype=np.uint8)
+
+    tab_good = _edge("tab", [0.1] * 7, [1, 2, 3])
+    tab_other = _edge("tab", [2.0] * 7, [5, 5, 5])
+    piece_a = _piece([tab_good, _edge("flat", [0] * 7, [0, 0, 0]), tab_other, _edge("flat", [0] * 7, [0, 0, 0])])
+
+    hole_match = _edge("hole", [0.1] * 7, [1, 2, 3])
+    hole_other = _edge("hole", [3.0] * 7, [10, 10, 10])
+    piece_b = _piece([hole_match, hole_other, _edge("tab", [0] * 7, [0, 0, 0]), _edge("flat", [0] * 7, [0, 0, 0])])
+
+    g1 = server.PieceGroup([1], {1: (0, 0)}, mask, piece_a, {1: mask}, {1: piece_a})
+    g2 = server.PieceGroup([2], {2: (0, 0)}, mask, piece_b, {2: mask}, {2: piece_b})
+
+    server.canvas_items.extend([
+        {"id": 1, "group": g1, "x": 0, "y": 0, "type": "piece"},
+        {"id": 2, "group": g2, "x": 10, "y": 0, "type": "piece"},
+    ])
+
+    resp = client.post("/suggest_match", json={"piece_id": 1, "edge_index": 0})
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert "matches" in data and len(data["matches"]) > 0
+    m = data["matches"][0]
+    assert m["piece_id"] == 2 and m["edge_index"] == 0
+
+
+def test_submit_feedback_endpoint():
+    app = server.app
+    client = app.test_client()
+
+    if pathlib.Path("feedback.jsonl").exists():
+        pathlib.Path("feedback.jsonl").unlink()
+
+    resp = client.post(
+        "/submit_feedback",
+        json={"state": {"a": 1}, "action": "test", "reward": 1},
+    )
+    assert resp.status_code == 200
+
+    # Ensure feedback appended
+    with open("feedback.jsonl") as f:
+        lines = f.readlines()
+    assert len(lines) >= 1
+    rec = json.loads(lines[-1])
+    assert rec["action"] == "test" and rec["reward"] == 1
