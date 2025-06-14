@@ -15,7 +15,6 @@ class PuzzlePiece:
 
 
 def remove_background(
-
     piece_img,
     iter_count: int = 5,
     rect_margin: int = 1,
@@ -46,7 +45,6 @@ def remove_background(
         Size of the morphological kernel to clean up the resulting mask.
         When ``None`` or less than 2 no morphology is applied.
     """
-
 
     mask = np.zeros(piece_img.shape[:2], dtype=np.uint8)
     bgd_model = np.zeros((1, 65), dtype=np.float64)
@@ -85,7 +83,9 @@ def remove_background(
             cv2.GC_INIT_WITH_RECT,
         )
 
-    mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype("uint8")
+    mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype(
+        "uint8"
+    )
 
     if kernel_size and kernel_size > 1:
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
@@ -96,10 +96,17 @@ def remove_background(
     return mask2, segmented
 
 
-def detect_piece_corners(mask, max_corners: int = 20, quality_level: float = 0.01, min_distance: int = 10):
+def detect_piece_corners(
+    mask, max_corners: int = 20, quality_level: float = 0.01, min_distance: int = 10
+):
     """Detect corner points on the piece boundary using Shi-Tomasi."""
     edges = cv2.Canny((mask * 255).astype(np.uint8), 50, 150)
-    corners = cv2.goodFeaturesToTrack(edges, maxCorners=max_corners, qualityLevel=quality_level, minDistance=min_distance)
+    corners = cv2.goodFeaturesToTrack(
+        edges,
+        maxCorners=max_corners,
+        qualityLevel=quality_level,
+        minDistance=min_distance,
+    )
     if corners is None:
         return np.empty((0, 2), dtype=np.int32)
     return corners.astype(np.int32).reshape(-1, 2)
@@ -125,7 +132,9 @@ def select_four_corners(corner_pts):
     return np.int32(kmeans.cluster_centers_)
 
 
-def is_edge_straight(mask, corner1, corner2, tolerance: float = 0.98, sample_points: int = 50):
+def is_edge_straight(
+    mask, corner1, corner2, tolerance: float = 0.98, sample_points: int = 50
+):
     """Check if the boundary between two corners is mostly straight.
 
     Parameters
@@ -226,11 +235,49 @@ def _validate_piece_orientation(img, contour, piece_type):
     return img, contour, applied % 360
 
 
+def apply_threshold(image, method: str = "otsu", **params):
+    """Return a binary mask using one of several thresholding methods."""
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    method = method.lower()
+
+    if method == "adaptive":
+        block = int(params.get("block_size", 11))
+        C = int(params.get("C", 2))
+        if block % 2 == 0:
+            block += 1
+        thresh = cv2.adaptiveThreshold(
+            gray,
+            255,
+            cv2.ADAPTIVE_THRESH_MEAN_C,
+            cv2.THRESH_BINARY_INV,
+            block,
+            C,
+        )
+        return thresh
+
+    if method == "canny":
+        t1 = int(params.get("threshold1", 50))
+        t2 = int(params.get("threshold2", 150))
+        return cv2.Canny(gray, t1, t2)
+
+    # default to otsu/global threshold
+    thresh_val = int(params.get("thresh_val", 0))
+    flag = cv2.THRESH_BINARY_INV
+    if method == "otsu" or thresh_val == 0:
+        ret, thresh = cv2.threshold(gray, 0, 255, flag | cv2.THRESH_OTSU)
+    else:
+        ret, thresh = cv2.threshold(gray, thresh_val, 255, flag)
+    return thresh
+
+
 def segment_pieces(
     image,
     min_area: int = 1000,
     thresh_val: int = 250,
     kernel_size: int = 3,
+    method: str = "otsu",
+    **params,
 ):
     """Segment an image containing multiple puzzle pieces.
 
@@ -256,17 +303,19 @@ def segment_pieces(
     list[numpy.ndarray]
         Cropped BGR images, one for each detected piece.
     """
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
+    thresh = apply_threshold(
+        image,
+        method=method,
+        thresh_val=thresh_val,
+        **params,
+    )
 
-    if kernel_size and kernel_size > 1:
+    if kernel_size and kernel_size > 1 and method != "canny":
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
-    contours, _ = cv2.findContours(
-        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     pieces = []
     for cnt in contours:
@@ -279,7 +328,9 @@ def segment_pieces(
     return pieces
 
 
-def segment_pieces_by_median(image, thresh_val: int = 250, kernel_size: int = 3):
+def segment_pieces_by_median(
+    image, thresh_val: int = 250, kernel_size: int = 3, method: str = "otsu", **params
+):
     """Segment pieces and filter by contour area around the median.
 
     The image is thresholded in the same way as :func:`segment_pieces` to
@@ -305,17 +356,19 @@ def segment_pieces_by_median(image, thresh_val: int = 250, kernel_size: int = 3)
         Cropped images with only the outer contour drawn.
     """
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
+    thresh = apply_threshold(
+        image,
+        method=method,
+        thresh_val=thresh_val,
+        **params,
+    )
 
-    if kernel_size and kernel_size > 1:
+    if kernel_size and kernel_size > 1 and method != "canny":
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
-    contours, _ = cv2.findContours(
-        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if not contours:
         return []
@@ -338,7 +391,9 @@ def segment_pieces_by_median(image, thresh_val: int = 250, kernel_size: int = 3)
     return outputs
 
 
-def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normalize: bool = True):
+def segment_pieces_metadata(
+    image, min_area: int = 1000, margin: int = 5, normalize: bool = True
+):
     """Segment puzzle pieces and return metadata for each piece.
 
     Parameters
@@ -389,7 +444,9 @@ def segment_pieces_metadata(image, min_area: int = 1000, margin: int = 5, normal
             corners = select_four_corners(detect_piece_corners(m))
             if len(corners) == 4:
                 piece_type = classify_piece_type(m, corners)
-                crop, local_cnt, extra = _validate_piece_orientation(crop, local_cnt, piece_type)
+                crop, local_cnt, extra = _validate_piece_orientation(
+                    crop, local_cnt, piece_type
+                )
                 angle += extra
             applied_angle = angle
 

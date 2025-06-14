@@ -1,5 +1,34 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.testclient import TestClient as _StarletteTC
+
+
+class _PatchedClient(_StarletteTC):
+    """Compatibility layer for older tests expecting data=file tuples."""
+
+    def post(self, url, data=None, **kwargs):
+        if isinstance(data, dict):
+            files = {}
+            form = {}
+            for key, val in data.items():
+                if isinstance(val, tuple) and len(val) >= 2 and hasattr(val[0], "read"):
+                    fileobj, filename = val[0], val[1]
+                    content_type = (
+                        val[2] if len(val) > 2 else "application/octet-stream"
+                    )
+                    files[key] = (filename, fileobj, content_type)
+                else:
+                    form[key] = val
+            if files:
+                kwargs.setdefault("files", files)
+                data = form
+        return super().post(url, data=data, **kwargs)
+
+
+# monkey patch the TestClient used in tests
+import fastapi.testclient as _ftc
+
+_ftc.TestClient = _PatchedClient
 
 from .segmentation_api import router as segmentation_router
 from .canvas_api import router as canvas_router
