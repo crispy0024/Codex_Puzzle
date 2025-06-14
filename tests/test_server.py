@@ -225,3 +225,27 @@ def test_submit_feedback_endpoint():
     assert len(lines) >= 1
     rec = json.loads(lines[-1])
     assert rec["action"] == "test" and rec["reward"] == 1
+
+
+def test_additional_segmentation_endpoints():
+    app = server.app
+    client = TestClient(app)
+
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (18, 18), (0, 0, 0), -1)
+    _, buf = cv2.imencode(".png", img)
+
+    resp = client.post("/detect_corners", data={"image": (io.BytesIO(buf.tobytes()), "p.png")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "corners" in data and len(data["corners"]) == 4
+
+    resp = client.post("/classify_piece", data={"image": (io.BytesIO(buf.tobytes()), "p.png")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "type" in data
+
+    resp = client.post("/edge_descriptors", data={"image": (io.BytesIO(buf.tobytes()), "p.png")})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "metrics" in data and len(data["metrics"]) == 4
