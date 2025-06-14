@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Draggable from 'react-draggable';
 
 export default function Home() {
   const [file, setFile] = useState(null);
@@ -21,6 +22,8 @@ export default function Home() {
   const [kernelSize, setKernelSize] = useState('');
   // canvas with placed pieces and groups
   const [canvasItems, setCanvasItems] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
 
   // load canvas layout from localStorage
   useEffect(() => {
@@ -247,6 +250,99 @@ export default function Home() {
     }
   };
 
+  const fetchSuggestions = async (id) => {
+    const res = await fetch('http://localhost:5000/suggest_match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ piece_id: id, edge_index: 0 }),
+    });
+    const data = await res.json();
+    if (data && data.matches) {
+      setSuggestions(data.matches);
+    }
+  };
+
+  const sendFeedback = async (state, action, reward) => {
+    await fetch('http://localhost:5000/submit_feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state, action, reward }),
+    });
+  };
+
+  const acceptSuggestion = (sug) => {
+    if (!selectedItem) return;
+    const match = canvasItems.find((it) => it.id === sug.piece_id);
+    if (!match) return;
+    const size = 100;
+    const offsets = {
+      0: [0, -size],
+      1: [size, 0],
+      2: [0, size],
+      3: [-size, 0],
+    };
+    const [dx, dy] = offsets[sug.edge_index] || [0, 0];
+    const nx = match.x + dx;
+    const ny = match.y + dy;
+    setCanvasItems((prev) =>
+      prev.map((it) => (it.id === selectedItem ? { ...it, x: nx, y: ny } : it))
+    );
+    sendFeedback(
+      { piece_id: selectedItem, target_id: sug.piece_id },
+      'accept',
+      1
+    );
+  };
+
+  const rejectSuggestion = (sug) => {
+    if (!selectedItem) return;
+    sendFeedback(
+      { piece_id: selectedItem, target_id: sug.piece_id },
+      'reject',
+      -1
+    );
+  };
+
+  const handleDragStop = (id, x, y) => {
+    let snapped = false;
+    let finalX = x;
+    let finalY = y;
+    if (id === selectedItem && suggestions.length > 0) {
+      for (const sug of suggestions) {
+        const match = canvasItems.find((it) => it.id === sug.piece_id);
+        if (!match) continue;
+        const size = 100;
+        const offsets = {
+          0: [0, -size],
+          1: [size, 0],
+          2: [0, size],
+          3: [-size, 0],
+        };
+        const [dx, dy] = offsets[sug.edge_index] || [0, 0];
+        const tx = match.x + dx;
+        const ty = match.y + dy;
+        const dist = Math.hypot(tx - x, ty - y);
+        if (dist < 30) {
+          finalX = tx;
+          finalY = ty;
+          snapped = true;
+          sendFeedback(
+            { piece_id: id, target_id: sug.piece_id },
+            'snap',
+            1
+          );
+          break;
+        }
+      }
+    }
+    setCanvasItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, x: finalX, y: finalY } : it))
+    );
+    if (!snapped) {
+      sendFeedback({ piece_id: id }, 'move', 0);
+    }
+  };
+
   const undoMerge = async () => {
     const res = await fetch('http://localhost:5000/undo_merge', { method: 'POST' });
     const data = await res.json();
@@ -281,19 +377,55 @@ export default function Home() {
         }}
       >
         {canvasItems.map((item) => (
-          <img
+          <Draggable
             key={item.id}
-            src={`data:image/png;base64,${item.image}`}
-            alt={`item-${item.id}`}
-            style={{
-              position: 'absolute',
-              left: item.x,
-              top: item.y,
-              width: '100px',
-            }}
-          />
+            position={{ x: item.x, y: item.y }}
+            onStop={(_, data) => handleDragStop(item.id, data.x, data.y)}
+          >
+            <img
+              src={`data:image/png;base64,${item.image}`}
+              alt={`item-${item.id}`}
+              onClick={() => {
+                setSelectedItem(item.id);
+                fetchSuggestions(item.id);
+              }}
+              style={{
+                position: 'absolute',
+                width: '100px',
+                cursor: 'move',
+              }}
+            />
+          </Draggable>
         ))}
       </div>
+
+      {selectedItem && suggestions.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Suggestions for piece {selectedItem}</h3>
+          {suggestions.map((s, idx) => (
+            <div key={idx} style={{ marginBottom: '0.5rem' }}>
+              <span>
+                Match piece {s.piece_id} edge {s.edge_index} (score{' '}
+                {s.score.toFixed(2)})
+              </span>
+              <button
+                onClick={() => acceptSuggestion(s)}
+                style={{ marginLeft: '0.5rem' }}
+              >
+                Accept
+              </button>
+              <button
+                onClick={() => rejectSuggestion(s)}
+                style={{ marginLeft: '0.5rem' }}
+              >
+                Reject
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
