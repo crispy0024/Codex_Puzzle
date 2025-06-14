@@ -5,6 +5,8 @@ import json
 
 import importlib.util
 import pathlib
+from puzzle.group import PieceGroup
+from puzzle.features import EdgeFeatures, PieceFeatures
 
 spec = importlib.util.spec_from_file_location("server", pathlib.Path(__file__).resolve().parents[1] / "server.py")
 server = importlib.util.module_from_spec(spec)
@@ -104,3 +106,42 @@ def test_extract_filtered_pieces_endpoint():
     assert response.status_code == 200
     data = json.loads(response.data)
     assert 'pieces' in data and len(data['pieces']) == 2
+
+
+def _dummy_features(size):
+    h, w = size
+    contour = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.int32)
+    edges = [
+        EdgeFeatures(edge_type="flat", length=float(w), angle=0.0, hu_moments=None, color_hist=None, color_profile=None)
+        for _ in range(4)
+    ]
+    return PieceFeatures(contour=contour, area=float(h * w), bbox=(0, 0, w, h), edges=edges)
+
+
+def test_merge_and_undo_endpoints():
+    server.GROUPS.clear()
+    server.PLACEMENTS.clear()
+    server.NEXT_GROUP_ID = 1
+    mask = np.ones((10, 10), dtype=np.uint8)
+    pf1 = _dummy_features((10, 10))
+    pf2 = _dummy_features((10, 10))
+    g1 = PieceGroup([1], {1: (0, 0)}, mask, pf1, {1: mask}, {1: pf1})
+    g2 = PieceGroup([2], {2: (0, 0)}, mask, pf2, {2: mask}, {2: pf2})
+    server.GROUPS[1] = g1
+    server.GROUPS[2] = g2
+    client = server.app.test_client()
+
+    res = client.post('/merge_pieces', json={'group_a': 1, 'group_b': 2, 'edge_a': 1, 'edge_b': 3})
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert 'group_id' in data
+    gid = data['group_id']
+    assert gid in server.GROUPS
+    assert server.GROUPS[gid].piece_ids == [1, 2]
+
+    res = client.post('/undo_merge', json={'group_id': gid})
+    assert res.status_code == 200
+    data = json.loads(res.data)
+    assert 'group_ids' in data
+    assert len(data['group_ids']) == 2
+    assert len(server.GROUPS) == 2

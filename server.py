@@ -16,8 +16,14 @@ from puzzle.segmentation import (
     segment_pieces_metadata,
     PuzzlePiece,
 )
-from puzzle.features import extract_edge_descriptors, classify_edge_types, EdgeFeatures
+from puzzle.features import (
+    extract_edge_descriptors,
+    classify_edge_types,
+    EdgeFeatures,
+    PieceFeatures,
+)
 from puzzle.scoring import compatibility_score
+from puzzle.group import PieceGroup, merge_groups, split_group, _compute_features
 
 COLOR_MAP = {
     'red': (0, 0, 255),
@@ -27,6 +33,11 @@ COLOR_MAP = {
 
 app = Flask(__name__)
 CORS(app)  # allow requests from the frontend
+
+# In-memory state
+GROUPS = {}
+NEXT_GROUP_ID = 1
+PLACEMENTS = {}
 
 @app.route('/remove_background', methods=['POST'])
 def remove_background_endpoint():
@@ -331,8 +342,10 @@ def segment_pieces_metadata_endpoint():
     return jsonify({'pieces': outputs})
 
 
-@app.route('/piece_contours', methods=['POST'])
-def piece_contours_endpoint():
+
+@app.route('/extract_contours', methods=['POST'])
+def extract_contours_endpoint():
+
     if 'image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
     file = request.files['image']
@@ -389,6 +402,143 @@ def adjust_image_endpoint():
     _, buf = cv2.imencode('.png', output)
     b64 = base64.b64encode(buf).decode('utf-8')
     return jsonify({'image': b64})
+
+
+def _serialize_edge(e: EdgeFeatures):
+    return {
+        'edge_type': e.edge_type,
+        'length': e.length,
+        'angle': e.angle,
+        'hu': e.hu_moments.tolist() if e.hu_moments is not None else None,
+        'hist': e.color_hist.tolist() if e.color_hist is not None else None,
+        'color_profile': e.color_profile.tolist() if e.color_profile is not None else None,
+    }
+
+
+def _serialize_features(f: PieceFeatures):
+    return {
+        'contour': f.contour.tolist(),
+        'area': f.area,
+        'bbox': list(f.bbox),
+        'edges': [_serialize_edge(e) for e in f.edges],
+    }
+
+
+def _deserialize_edge(d):
+    return EdgeFeatures(
+        edge_type=d['edge_type'],
+        length=d['length'],
+        angle=d['angle'],
+        hu_moments=np.array(d['hu']) if d['hu'] is not None else None,
+        color_hist=np.array(d['hist']) if d['hist'] is not None else None,
+        color_profile=np.array(d['color_profile']) if d['color_profile'] is not None else None,
+    )
+
+
+def _deserialize_features(d):
+    return PieceFeatures(
+        contour=np.array(d['contour'], dtype=np.int32),
+        area=d['area'],
+        bbox=tuple(d['bbox']),
+        edges=[_deserialize_edge(e) for e in d['edges']],
+    )
+
+
+def _serialize_group(gid: int, g: PieceGroup):
+    return {
+        'group_id': gid,
+        'piece_ids': g.piece_ids,
+        'transforms': {str(pid): list(t) for pid, t in g.transforms.items()},
+        'mask': g.mask.tolist(),
+        'piece_masks': {str(pid): m.tolist() for pid, m in g.piece_masks.items()},
+        'original_features': {str(pid): _serialize_features(f) for pid, f in g.original_features.items()},
+    }
+
+
+def _deserialize_group(d):
+    piece_ids = list(d['piece_ids'])
+    transforms = {int(pid): tuple(val) for pid, val in d['transforms'].items()}
+    mask = np.array(d['mask'], dtype=np.uint8)
+    piece_masks = {int(pid): np.array(m, dtype=np.uint8) for pid, m in d['piece_masks'].items()}
+    original_features = {int(pid): _deserialize_features(f) for pid, f in d['original_features'].items()}
+    features = _compute_features(np.dstack([mask * 255] * 3), mask)
+    return PieceGroup(piece_ids, transforms, mask, features, piece_masks, original_features)
+
+
+@app.route('/merge_pieces', methods=['POST'])
+def merge_pieces_endpoint():
+    data = request.get_json(force=True)
+    try:
+        gid_a = int(data.get('group_a'))
+        gid_b = int(data.get('group_b'))
+        edge_a = int(data.get('edge_a', 0))
+        edge_b = int(data.get('edge_b', 0))
+    except Exception:
+        return jsonify({'error': 'Invalid parameters'}), 400
+
+    if gid_a not in GROUPS or gid_b not in GROUPS:
+        return jsonify({'error': 'Group not found'}), 400
+
+    group_a = GROUPS.pop(gid_a)
+    group_b = GROUPS.pop(gid_b)
+    merged = merge_groups(group_a, group_b, edge_a, edge_b)
+    global NEXT_GROUP_ID
+    new_id = NEXT_GROUP_ID
+    NEXT_GROUP_ID += 1
+    GROUPS[new_id] = merged
+    PLACEMENTS[new_id] = (0, 0)
+    return jsonify({'group_id': new_id, 'piece_ids': merged.piece_ids})
+
+
+@app.route('/undo_merge', methods=['POST'])
+def undo_merge_endpoint():
+    data = request.get_json(force=True)
+    try:
+        gid = int(data.get('group_id'))
+    except Exception:
+        return jsonify({'error': 'Invalid group id'}), 400
+    if gid not in GROUPS:
+        return jsonify({'error': 'Group not found'}), 400
+    group = GROUPS.pop(gid)
+    created = []
+    global NEXT_GROUP_ID
+    for pid in group.piece_ids:
+        mask = group.piece_masks[pid]
+        feat = group.original_features[pid]
+        single = PieceGroup([pid], {pid: (0, 0)}, mask, feat, {pid: mask}, {pid: feat})
+        new_id = NEXT_GROUP_ID
+        NEXT_GROUP_ID += 1
+        GROUPS[new_id] = single
+        PLACEMENTS[new_id] = (0, 0)
+        created.append(new_id)
+    return jsonify({'group_ids': created})
+
+
+@app.route('/save_state', methods=['GET'])
+def save_state_endpoint():
+    data = {
+        'groups': [_serialize_group(gid, g) for gid, g in GROUPS.items()],
+        'placements': {str(gid): list(pos) for gid, pos in PLACEMENTS.items()},
+    }
+    return jsonify(data)
+
+
+@app.route('/load_state', methods=['POST'])
+def load_state_endpoint():
+    data = request.get_json(force=True)
+    if not data or 'groups' not in data:
+        return jsonify({'error': 'Invalid state'}), 400
+    GROUPS.clear()
+    PLACEMENTS.clear()
+    global NEXT_GROUP_ID
+    NEXT_GROUP_ID = 1
+    for gdict in data.get('groups', []):
+        gid = int(gdict['group_id'])
+        GROUPS[gid] = _deserialize_group(gdict)
+        NEXT_GROUP_ID = max(NEXT_GROUP_ID, gid + 1)
+    for gid, pos in data.get('placements', {}).items():
+        PLACEMENTS[int(gid)] = tuple(pos)
+    return jsonify({'groups': len(GROUPS)})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
