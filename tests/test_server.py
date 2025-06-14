@@ -104,3 +104,53 @@ def test_extract_filtered_pieces_endpoint():
     assert response.status_code == 200
     data = json.loads(response.data)
     assert 'pieces' in data and len(data['pieces']) == 2
+
+
+def _dummy_features(size):
+    h, w = size
+    contour = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.int32)
+    edges = [
+        server.EdgeFeatures(
+            edge_type="flat",
+            length=float(w),
+            angle=0.0,
+            hu_moments=None,
+            color_hist=None,
+            color_profile=None,
+        )
+        for _ in range(4)
+    ]
+    return server.PieceFeatures(contour=contour, area=float(h * w), bbox=(0, 0, w, h), edges=edges)
+
+
+def test_merge_and_undo_endpoints():
+    app = server.app
+    client = app.test_client()
+
+    server.canvas_items.clear()
+    server.merge_history.clear()
+
+    mask = np.ones((10, 10), dtype=np.uint8)
+    pf1 = _dummy_features((10, 10))
+    pf2 = _dummy_features((10, 10))
+    g1 = server.PieceGroup([1], {1: (0, 0)}, mask, pf1, {1: mask}, {1: pf1})
+    g2 = server.PieceGroup([2], {2: (0, 0)}, mask, pf2, {2: mask}, {2: pf2})
+
+    server.canvas_items.extend([
+        {'id': 1, 'group': g1, 'x': 0, 'y': 0, 'type': 'piece'},
+        {'id': 2, 'group': g2, 'x': 10, 'y': 0, 'type': 'piece'},
+    ])
+
+    resp = client.post('/merge_pieces', json={'piece_ids': [1, 2]})
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert 'id' in data and 'image' in data
+    assert len(server.canvas_items) == 1
+    assert server.canvas_items[0]['group'].piece_ids == [1, 2]
+
+    resp2 = client.post('/undo_merge')
+    assert resp2.status_code == 200
+    data2 = json.loads(resp2.data)
+    assert 'items' in data2 and len(data2['items']) == 2
+    ids = sorted([it['id'] for it in server.canvas_items])
+    assert ids == [1, 2]
