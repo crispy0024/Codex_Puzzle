@@ -14,6 +14,7 @@ from ..segmentation import (
     segment_pieces_by_median,
     segment_pieces_metadata,
     extract_mask_contours,
+    extract_clean_pieces,
     PuzzlePiece,
 )
 from ..features import (
@@ -109,6 +110,33 @@ async def extract_filtered_pieces_endpoint(
     for p in pieces:
         _, buf = cv2.imencode(".png", p)
         outputs.append(base64.b64encode(buf).decode("utf-8"))
+    return {"pieces": outputs}
+
+
+@router.post("/extract_then_remove")
+async def extract_then_remove_endpoint(
+    image: UploadFile = File(...),
+    blur: int = Form(5),
+    kernel_size: int = Form(3),
+):
+    """Extract pieces, clean them and run remove_background."""
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    pieces = extract_clean_pieces(img, blur=blur, kernel_size=kernel_size)
+    outputs = []
+    for p in pieces:
+        mask, result = remove_background(p)
+        _, rbuf = cv2.imencode(".png", result)
+        inv = cv2.bitwise_not(mask * 255)
+        _, mbuf = cv2.imencode(".png", inv)
+        outputs.append(
+            {
+                "image": base64.b64encode(rbuf).decode("utf-8"),
+                "mask": base64.b64encode(mbuf).decode("utf-8"),
+            }
+        )
     return {"pieces": outputs}
 
 

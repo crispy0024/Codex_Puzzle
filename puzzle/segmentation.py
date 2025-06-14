@@ -452,6 +452,48 @@ def extract_mask_contours(mask, area_ratio: float = 0.25):
     return outputs, num_contours
 
 
+def extract_clean_pieces(image, blur: int = 5, kernel_size: int = 3):
+    """Simple piece extraction with blur and morphology.
+
+    The input image is blurred, thresholded and then cleaned using an
+    erosion followed by dilation to eliminate small particles. Each
+    resulting contour crop is returned.
+
+    Parameters
+    ----------
+    image : ndarray
+        BGR image containing one or more puzzle pieces.
+    blur : int, optional
+        Size of the Gaussian blur kernel. Must be odd.
+    kernel_size : int, optional
+        Size of the morphological kernel for the open/close operations.
+
+    Returns
+    -------
+    list[numpy.ndarray]
+        Cropped piece images.
+    """
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if blur and blur % 2 == 1:
+        gray = cv2.GaussianBlur(gray, (blur, blur), 0)
+    _, thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)
+    if kernel_size and kernel_size > 1:
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        thresh = cv2.erode(thresh, kernel, iterations=1)
+        thresh = cv2.dilate(thresh, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    pieces = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        piece_img = image[y : y + h, x : x + w]
+        pieces.append(piece_img)
+
+    return pieces
+
+
 def segment_pieces_metadata(
     image, min_area: int = 1000, margin: int = 5, normalize: bool = True, use_hull: bool = False
 ):

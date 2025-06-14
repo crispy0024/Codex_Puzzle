@@ -104,6 +104,21 @@ export default function Home() {
     }
   };
 
+  const runExtractThenRemove = async () => {
+    setLoading(true);
+    try {
+      const data = await postImage('extract_then_remove', file, {
+        blur: blurValue,
+        kernel_size: kernelSize,
+      });
+      if (data && data.pieces) {
+        setResult((r) => ({ ...r, extract_then_remove: data.pieces }));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runBatchRemoveBackground = async () => {
     setLoading(true);
     try {
@@ -438,7 +453,7 @@ export default function Home() {
               }}
               style={{
                 position: 'absolute',
-                width: '100px',
+                width: '150px',
                 cursor: 'move',
               }}
             />
@@ -494,6 +509,7 @@ export default function Home() {
       </div>
 
       <div className="buttons" style={{ marginTop: '1rem' }}>
+        <button onClick={runExtractThenRemove} disabled={loading}>Extract &amp; Clean</button>
         <button onClick={runRemoveBackground} disabled={loading}>Remove Background</button>
         <button onClick={runDetectCorners} disabled={loading}>Detect Corners</button>
         <button onClick={runClassifyPiece} disabled={loading}>Classify Piece</button>
@@ -602,6 +618,29 @@ export default function Home() {
         </div>
       )}
 
+      {result.extract_then_remove && result.extract_then_remove.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Extracted Pieces</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {result.extract_then_remove.map((p, idx) => (
+              <img
+                key={idx}
+                src={`data:image/png;base64,${p.image}`}
+                alt={`ex-${idx}`}
+                style={{
+                  width: '150px',
+                  height: '150px',
+                  objectFit: 'contain',
+                  marginRight: '0.5rem',
+                  marginBottom: '0.5rem',
+                  border: '1px solid #ccc',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {result.corners && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Corners</h3>
@@ -659,7 +698,7 @@ export default function Home() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, 120px)',
+              gridTemplateColumns: 'repeat(auto-fill, 170px)',
               gap: '0.5rem',
             }}
           >
@@ -668,7 +707,7 @@ export default function Home() {
                 <img
                   src={`data:image/png;base64,${p}`}
                   alt={`piece-${idx}`}
-                  style={{ width: '100px', height: '100px', objectFit: 'contain' }}
+                  style={{ width: '150px', height: '150px', objectFit: 'contain' }}
                 />
                 <div>
                   <input
@@ -751,8 +790,8 @@ export default function Home() {
                       src={piece}
                       alt={`piece-${pidx}`}
                       style={{
-                        width: '100px',
-                        height: '100px',
+                        width: '150px',
+                        height: '150px',
                         objectFit: 'contain',
                         marginRight: '0.5rem',
                         marginBottom: '0.5rem',
@@ -767,8 +806,8 @@ export default function Home() {
                       src={piece}
                       alt={`contour-${pidx}`}
                       style={{
-                        width: '100px',
-                        height: '100px',
+                        width: '150px',
+                        height: '150px',
                         objectFit: 'contain',
                         marginRight: '0.5rem',
                         marginBottom: '0.5rem',
