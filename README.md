@@ -99,6 +99,29 @@ The dataclasses `EdgeFeatures` and `PieceFeatures` store these metrics for each
 piece. `extract_edge_descriptors` returns dictionaries containing the vectors for
 all four edges in order.
 
+## Watershed Segmentation Demo
+
+The repository also offers a helper based on the watershed algorithm as
+outlined in [PyImageSearch's tutorial](https://pyimagesearch.com/2015/11/02/watershed-opencv/).
+The `watershed_steps` function exposes each stage of the process so the
+intermediate results can be inspected. Example usage:
+
+```python
+import cv2
+from puzzle.watershed import watershed_steps
+
+image = cv2.imread("pieces.jpg")
+outputs = watershed_steps(image)
+
+for name, step in outputs.items():
+    cv2.imshow(name, step)
+    cv2.waitKey(0)
+```
+
+The returned dictionary contains the grayscale conversion, binary mask, cleaned
+mask, sure background, sure foreground, unknown region, marker labels and the
+final watershed result with boundaries highlighted in red.
+
 ## Piece Compatibility Scoring
 
 The `puzzle.scoring` module implements helpers to compare edges and rank

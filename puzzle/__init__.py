@@ -12,6 +12,7 @@ from .segmentation import (
     extract_mask_contours,
     PuzzlePiece,
 )
+from .watershed import watershed_steps
 from .features import (
     extract_edge_descriptors,
     classify_edge_types,
@@ -40,6 +41,7 @@ __all__ = [
     "segment_pieces_metadata",
     "extract_mask_contours",
     "PuzzlePiece",
+    "watershed_steps",
     "extract_edge_descriptors",
     "classify_edge_types",
     "EdgeFeatures",

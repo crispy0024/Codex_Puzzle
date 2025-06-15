@@ -12,6 +12,7 @@ from puzzle.segmentation import (
     extract_mask_contours,
     PuzzlePiece,
 )
+from puzzle.watershed import watershed_steps
 
 
 def test_select_four_corners_returns_four():
@@ -178,3 +179,11 @@ def test_extract_mask_contours_filters_by_area():
     pieces, num = extract_mask_contours(mask)
     assert num == 3
     assert len(pieces) == 2
+
+
+def test_watershed_steps_returns_result():
+    img = np.full((30, 60, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (25, 25), (0, 0, 0), -1)
+    cv2.rectangle(img, (35, 5), (55, 25), (0, 0, 0), -1)
+    outputs = watershed_steps(img)
+    assert "result" in outputs and outputs["result"].shape == img.shape
