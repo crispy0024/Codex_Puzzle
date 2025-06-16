@@ -3,6 +3,7 @@ import cv2
 import pytest
 from puzzle.segmentation import (
     remove_background,
+    remove_background_canny,
     select_four_corners,
     apply_threshold,
     segment_pieces,
@@ -50,6 +51,15 @@ def test_remove_background_custom_kernel_closes_holes():
     )
     n_labels, _ = cv2.connectedComponents(mask)
     assert n_labels == 2 and mask[9, 9] == 1
+
+
+def test_remove_background_canny_returns_edges():
+    img = np.full((20, 20, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (5, 5), (14, 14), (0, 0, 0), -1)
+    mask, result, edges = remove_background_canny(
+        img, lower_thresh=240, upper_thresh=255
+    )
+    assert edges.shape == mask.shape and edges.dtype == np.uint8
 
 
 def test_segment_pieces_preserves_separation_with_morphology():

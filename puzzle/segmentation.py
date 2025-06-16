@@ -72,6 +72,24 @@ def remove_background(
     return mask2, segmented
 
 
+def remove_background_canny(
+    piece_img,
+    canny1: int = 50,
+    canny2: int = 150,
+    **kwargs,
+):
+    """Run :func:`remove_background` followed by Canny edge detection."""
+
+    mask, result = remove_background(
+        piece_img,
+        lower_thresh=kwargs.get("lower_thresh"),
+        upper_thresh=kwargs.get("upper_thresh"),
+        kernel_size=kwargs.get("kernel_size"),
+    )
+    edges = cv2.Canny((mask * 255).astype(np.uint8), canny1, canny2)
+    return mask, result, edges
+
+
 def detect_piece_corners(
     mask, max_corners: int = 20, quality_level: float = 0.01, min_distance: int = 10
 ):

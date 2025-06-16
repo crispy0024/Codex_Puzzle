@@ -32,6 +32,25 @@ export default function Home() {
     }
   };
 
+  const extractWithCanny = async () => {
+    if (!inputFile) return;
+    setStatus("Running extraction...");
+    const form = new FormData();
+    form.append("image", inputFile);
+    const res = await fetch(`${API_URL}/background_canny`, {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json();
+    if (data.image) {
+      setPieces([{ id: 0, src: `data:image/png;base64,${data.image}` }]);
+      setManualImg(`data:image/png;base64,${data.edges}`);
+      setStatus("Extraction complete");
+    } else {
+      setStatus("No output");
+    }
+  };
+
   const segmentPieces = async () => {
     if (!inputFile) return;
     setStatus("Segmenting pieces...");
@@ -158,7 +177,7 @@ export default function Home() {
         <h2>1. Extract &amp; Clean</h2>
         <p>Upload a puzzle image and isolate each piece.</p>
         <input type="file" onChange={handleFile} />
-        <button onClick={segmentPieces}>Run Extraction</button>
+        <button onClick={extractWithCanny}>Run Extraction</button>
         <ImageGrid images={pieces} />
       </section>
 

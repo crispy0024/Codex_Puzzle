@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from ..segmentation import (
     remove_background,
+    remove_background_canny,
     detect_piece_corners,
     select_four_corners,
     classify_piece_type,
@@ -51,6 +52,34 @@ async def remove_background_endpoint(
     _, mask_buf = cv2.imencode(".png", inv)
     mask_b64 = base64.b64encode(mask_buf).decode("utf-8")
     return {"image": result_b64, "mask": mask_b64}
+
+
+@router.post("/background_canny")
+async def background_canny_endpoint(
+    image: UploadFile = File(...),
+    threshold_low: int | None = Form(None),
+    threshold_high: int | None = Form(None),
+    kernel_size: int | None = Form(None),
+):
+    data = await image.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Invalid image"})
+    mask, result, edges = remove_background_canny(
+        img,
+        lower_thresh=threshold_low,
+        upper_thresh=threshold_high,
+        kernel_size=kernel_size,
+    )
+    _, rbuf = cv2.imencode(".png", result)
+    inv = cv2.bitwise_not(mask * 255)
+    _, mbuf = cv2.imencode(".png", inv)
+    _, ebuf = cv2.imencode(".png", edges)
+    return {
+        "image": base64.b64encode(rbuf).decode("utf-8"),
+        "mask": base64.b64encode(mbuf).decode("utf-8"),
+        "edges": base64.b64encode(ebuf).decode("utf-8"),
+    }
 
 
 @router.post("/segment_pieces")
