@@ -77,7 +77,7 @@ individually so you can inspect the output of every stage.
 
 1. **Extract & Clean** – isolates each puzzle piece with a blur and
    morphology step.
-2. **Remove Background** – applies GrabCut to a single piece.
+2. **Remove Background** – uses watershed segmentation to isolate a single piece.
 3. **Detect Corners** – highlights the four main corners on the piece.
 4. **Classify Piece** – labels the piece as corner, edge or middle.
 5. **Edge Descriptors** – computes color and shape metrics for each edge.

@@ -164,7 +164,7 @@ export default function Home() {
 
       <section>
         <h2>2. Remove Background</h2>
-        <p>Apply GrabCut to each extracted piece.</p>
+        <p>Use the watershed algorithm to remove background from each piece.</p>
         <button onClick={removeBackground}>Remove Background</button>
         <ImageGrid images={bgPieces} />
       </section>
