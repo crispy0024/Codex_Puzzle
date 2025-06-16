@@ -72,3 +72,20 @@ img {
   margin-top: 1rem;
   font-style: italic;
 }
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-left: 0.5rem;
+  border: 2px solid #ccc;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+function Spinner() {
+  return <span className="spinner" />;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 function ImageGrid({ images }) {
@@ -25,16 +29,21 @@ export default function Home() {
   const [descs, setDescs] = useState({});
   const [manualImg, setManualImg] = useState(null);
   const [status, setStatus] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [loadingAction, setLoadingAction] = useState(null);
 
   const handleFile = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setInputFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setInputFile(file);
+      setPreview(URL.createObjectURL(file));
     }
   };
 
   const extractWithCanny = async () => {
     if (!inputFile) return;
     setStatus("Running extraction...");
+    setLoadingAction("extract");
     const form = new FormData();
     form.append("image", inputFile);
     const res = await fetch(`${API_URL}/background_canny`, {
@@ -49,11 +58,13 @@ export default function Home() {
     } else {
       setStatus("No output");
     }
+    setLoadingAction(null);
   };
 
   const segmentPieces = async () => {
     if (!inputFile) return;
     setStatus("Segmenting pieces...");
+    setLoadingAction("segment");
     const form = new FormData();
     form.append("image", inputFile);
     const res = await fetch(`${API_URL}/segment_pieces`, {
@@ -72,9 +83,11 @@ export default function Home() {
     } else {
       setStatus("No pieces found");
     }
+    setLoadingAction(null);
   };
 
   const removeBackground = async () => {
+    setLoadingAction("remove");
     const outputs = [];
     for (let i = 0; i < pieces.length; i++) {
       const p = pieces[i];
@@ -96,9 +109,11 @@ export default function Home() {
     }
     setBgPieces(outputs);
     setStatus("Background removal complete");
+    setLoadingAction(null);
   };
 
   const detectCorners = async () => {
+    setLoadingAction("corners");
     const cdata = {};
     for (let i = 0; i < bgPieces.length; i++) {
       const p = bgPieces[i];
@@ -115,9 +130,11 @@ export default function Home() {
     }
     setCorners(cdata);
     setStatus("Corner detection complete");
+    setLoadingAction(null);
   };
 
   const classifyPieces = async () => {
+    setLoadingAction("classify");
     const pdata = {};
     for (let i = 0; i < bgPieces.length; i++) {
       const p = bgPieces[i];
@@ -134,9 +151,11 @@ export default function Home() {
     }
     setTypes(pdata);
     setStatus("Classification complete");
+    setLoadingAction(null);
   };
 
   const edgeDescriptors = async () => {
+    setLoadingAction("descriptors");
     const edata = {};
     for (let i = 0; i < bgPieces.length; i++) {
       const p = bgPieces[i];
@@ -153,11 +172,13 @@ export default function Home() {
     }
     setDescs(edata);
     setStatus("Descriptor computation complete");
+    setLoadingAction(null);
   };
 
   const manualAdjust = async () => {
     if (!inputFile) return;
     setStatus("Adjusting image...");
+    setLoadingAction("adjust");
     const form = new FormData();
     form.append("image", inputFile);
     const res = await fetch(`${API_URL}/adjust_image`, {
@@ -167,6 +188,7 @@ export default function Home() {
     const data = await res.json();
     setManualImg(`data:image/png;base64,${data.image}`);
     setStatus("Adjustment complete");
+    setLoadingAction(null);
   };
 
   return (
@@ -177,21 +199,31 @@ export default function Home() {
         <h2>1. Extract &amp; Clean</h2>
         <p>Upload a puzzle image and isolate each piece.</p>
         <input type="file" onChange={handleFile} />
-        <button onClick={extractWithCanny}>Run Extraction</button>
+        {preview && <img src={preview} alt="preview" style={{maxWidth: '100%', marginTop: '0.5rem'}} />}
+        <button onClick={extractWithCanny} disabled={loadingAction === 'extract'}>
+          Run Extraction
+          {loadingAction === 'extract' && <Spinner />}
+        </button>
         <ImageGrid images={pieces} />
       </section>
 
       <section>
         <h2>2. Remove Background</h2>
         <p>Use the watershed algorithm to remove background from each piece.</p>
-        <button onClick={removeBackground}>Remove Background</button>
+        <button onClick={removeBackground} disabled={loadingAction === 'remove'}>
+          Remove Background
+          {loadingAction === 'remove' && <Spinner />}
+        </button>
         <ImageGrid images={bgPieces} />
       </section>
 
       <section>
         <h2>3. Detect Corners</h2>
         <p>Find the four main corners of every piece.</p>
-        <button onClick={detectCorners}>Detect Corners</button>
+        <button onClick={detectCorners} disabled={loadingAction === 'corners'}>
+          Detect Corners
+          {loadingAction === 'corners' && <Spinner />}
+        </button>
         {Object.entries(corners).map(([id, pts]) => (
           <div key={id}>Piece {id}: {JSON.stringify(pts)}</div>
         ))}
@@ -200,7 +232,10 @@ export default function Home() {
       <section>
         <h2>4. Classify Piece</h2>
         <p>Label each piece as corner, edge or middle.</p>
-        <button onClick={classifyPieces}>Classify</button>
+        <button onClick={classifyPieces} disabled={loadingAction === 'classify'}>
+          Classify
+          {loadingAction === 'classify' && <Spinner />}
+        </button>
         {Object.entries(types).map(([id, t]) => (
           <div key={id}>Piece {id}: {t}</div>
         ))}
@@ -209,7 +244,10 @@ export default function Home() {
       <section>
         <h2>5. Edge Descriptors</h2>
         <p>Compute color and shape metrics per edge.</p>
-        <button onClick={edgeDescriptors}>Compute</button>
+        <button onClick={edgeDescriptors} disabled={loadingAction === 'descriptors'}>
+          Compute
+          {loadingAction === 'descriptors' && <Spinner />}
+        </button>
         {Object.entries(descs).map(([id, d]) => (
           <div key={id}>
             <strong>Piece {id}</strong>
@@ -221,19 +259,28 @@ export default function Home() {
       <section>
         <h2>6. Batch Remove Background</h2>
         <p>Run background removal on all uploaded images.</p>
-        <button onClick={removeBackground}>Run Batch</button>
+        <button onClick={removeBackground} disabled={loadingAction === 'remove'}>
+          Run Batch
+          {loadingAction === 'remove' && <Spinner />}
+        </button>
       </section>
 
       <section>
         <h2>7. Segment Pieces</h2>
         <p>Split an image containing many pieces.</p>
-        <button onClick={segmentPieces}>Segment</button>
+        <button onClick={segmentPieces} disabled={loadingAction === 'segment'}>
+          Segment
+          {loadingAction === 'segment' && <Spinner />}
+        </button>
       </section>
 
       <section>
         <h2>8. Manual Adjust</h2>
         <p>Overlay a color mask on the selected image.</p>
-        <button onClick={manualAdjust}>Adjust</button>
+        <button onClick={manualAdjust} disabled={loadingAction === 'adjust'}>
+          Adjust
+          {loadingAction === 'adjust' && <Spinner />}
+        </button>
         {manualImg && <img src={manualImg} alt="adjusted" />}
       </section>
       {status && <p className="status">{status}</p>}
