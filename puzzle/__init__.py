@@ -1,5 +1,6 @@
 from .segmentation import (
     remove_background,
+    remove_background_canny,
     detect_piece_corners,
     select_four_corners,
     is_edge_straight,
@@ -30,6 +31,7 @@ from .group import PieceGroup, merge_groups, split_group
 
 __all__ = [
     "remove_background",
+    "remove_background_canny",
     "detect_piece_corners",
     "select_four_corners",
     "is_edge_straight",

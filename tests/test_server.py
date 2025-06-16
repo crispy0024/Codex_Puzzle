@@ -29,6 +29,21 @@ def test_remove_background_endpoint():
     assert len(data["image"]) > 0 and len(data["mask"]) > 0
 
 
+def test_background_canny_endpoint():
+    app = server.app
+    client = TestClient(app)
+    img = np.full((10, 10, 3), 255, dtype=np.uint8)
+    cv2.rectangle(img, (2, 2), (8, 8), (0, 0, 0), -1)
+    _, buf = cv2.imencode(".png", img)
+    response = client.post(
+        "/background_canny",
+        data={"image": (io.BytesIO(buf.tobytes()), "test.png")},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "image" in data and "mask" in data and "edges" in data
+
+
 def test_segment_pieces_endpoint():
     app = server.app
     client = TestClient(app)
