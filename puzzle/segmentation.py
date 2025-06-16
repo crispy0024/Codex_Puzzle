@@ -22,7 +22,7 @@ def remove_background(
     upper_thresh: int | None = None,
     kernel_size: int | None = None,
 ):
-    """Segment a puzzle piece from the background using GrabCut.
+    """Segment a puzzle piece from the background using the watershed algorithm.
 
 
     Parameters
@@ -30,62 +30,38 @@ def remove_background(
     piece_img : ndarray
         BGR image of a single puzzle piece.
     iter_count : int, optional
-
-        Number of GrabCut iterations.
+        Ignored, present for backward compatibility.
     rect_margin : int, optional
-        Margin for the rectangle initialization when no thresholds are
-        provided.
+        Ignored, present for backward compatibility.
     lower_thresh, upper_thresh : int or None, optional
         Grayscale intensity bounds describing the background. When provided
-        an initial mask is created with pixels inside this range marked as
-        background and GrabCut is initialized with ``cv2.GC_INIT_WITH_MASK``.
-        If either value is ``None`` the rectangle based initialization is
-        used instead.
+        they are used to create the initial binary mask prior to watershed.
     kernel_size : int or None, optional
         Size of the morphological kernel to clean up the resulting mask.
         When ``None`` or less than 2 no morphology is applied.
     """
 
-    mask = np.zeros(piece_img.shape[:2], dtype=np.uint8)
-    bgd_model = np.zeros((1, 65), dtype=np.float64)
-    fgd_model = np.zeros((1, 65), dtype=np.float64)
+    gray = cv2.cvtColor(piece_img, cv2.COLOR_BGR2GRAY)
 
-    use_rect = True
     if lower_thresh is not None and upper_thresh is not None:
-        gray = cv2.cvtColor(piece_img, cv2.COLOR_BGR2GRAY)
-        thresh_mask = cv2.inRange(gray, lower_thresh, upper_thresh)
-        has_bgd = np.any(thresh_mask == 255)
-        has_obj = np.any(thresh_mask == 0)
-        if has_bgd and has_obj:
-            mask.fill(cv2.GC_PR_FGD)
-            mask[thresh_mask == 255] = cv2.GC_BGD
-            cv2.grabCut(
-                piece_img,
-                mask,
-                None,
-                bgd_model,
-                fgd_model,
-                iter_count,
-                cv2.GC_INIT_WITH_MASK,
-            )
-            use_rect = False
-
-    if use_rect:
-        h, w = piece_img.shape[:2]
-        rect = (rect_margin, rect_margin, w - 2 * rect_margin, h - 2 * rect_margin)
-        cv2.grabCut(
-            piece_img,
-            mask,
-            rect,
-            bgd_model,
-            fgd_model,
-            iter_count,
-            cv2.GC_INIT_WITH_RECT,
+        mask2 = cv2.inRange(gray, lower_thresh, upper_thresh)
+        mask2 = cv2.bitwise_not(mask2)
+        mask2 = (mask2 > 0).astype("uint8")
+    else:
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, thresh = cv2.threshold(
+            blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
 
-    mask2 = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 1, 0).astype(
-        "uint8"
-    )
+        kernel = np.ones((3, 3), np.uint8)
+        clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+        clean = cv2.morphologyEx(clean, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+        _, markers = cv2.connectedComponents(clean)
+        markers = markers + 1
+
+        markers = cv2.watershed(piece_img.copy(), markers)
+        mask2 = np.where(markers > 1, 1, 0).astype("uint8")
 
     if kernel_size and kernel_size > 1:
         kernel = np.ones((kernel_size, kernel_size), np.uint8)

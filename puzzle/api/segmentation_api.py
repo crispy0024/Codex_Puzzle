@@ -288,6 +288,12 @@ async def compare_edges_endpoint(request: Request):
     mask2, _ = remove_background(img2)
     corners1 = select_four_corners(detect_piece_corners(mask1))
     corners2 = select_four_corners(detect_piece_corners(mask2))
+    if len(corners1) != 4:
+        x, y, w, h = cv2.boundingRect(conts1[0])
+        corners1 = np.array([[x, y + h - 1], [x, y], [x + w - 1, y + h - 1], [x + w - 1, y]], dtype=np.int32)
+    if len(corners2) != 4:
+        x, y, w, h = cv2.boundingRect(conts2[0])
+        corners2 = np.array([[x, y + h - 1], [x, y], [x + w - 1, y + h - 1], [x + w - 1, y]], dtype=np.int32)
 
     conts1, _ = cv2.findContours(
         mask1.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
