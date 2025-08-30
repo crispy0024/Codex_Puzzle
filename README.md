@@ -2,7 +2,28 @@
 
 This repository contains notebooks and Python modules experimenting with computer vision techniques for jigsaw puzzle pieces. The goal is to explore ways to segment images of puzzles and attempt reassembly programmatically.
 
-## Contents
+## Automotive Data Scraping (NEW)
+
+This repository now includes automotive data scraping and machine learning capabilities for analyzing vehicle data from autotrader.com. See [AUTOMOTIVE_SCRAPING.md](AUTOMOTIVE_SCRAPING.md) for detailed documentation.
+
+### Quick Start
+```bash
+# Start the server
+python server.py
+
+# Load sample automotive data
+curl http://localhost:5000/scraping/sample_data
+
+# Train a price prediction model
+curl -X POST http://localhost:5000/scraping/train_price_model
+
+# Predict vehicle price
+curl -X POST http://localhost:5000/scraping/predict_price \
+  -H "Content-Type: application/json" \
+  -d '{"make": "Toyota", "model": "Camry", "year": 2023, "mileage": 10000}'
+```
+
+## Puzzle Computer Vision
 
 - **Kaggle_Jigsaw.ipynb** – Demonstrates thresholding and contour detection with OpenCV. The notebook walks through creating bounding boxes around individual pieces and saving them as separate images.
 - **Masking_puzzle.ipynb** – A larger workflow that removes backgrounds with GrabCut segmentation, performs feature extraction and corner detection, and includes sample code to display selected puzzle pieces.
