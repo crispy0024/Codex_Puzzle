@@ -33,6 +33,7 @@ _ftc.TestClient = _PatchedClient
 from .segmentation_api import router as segmentation_router
 from .canvas_api import router as canvas_router
 from .rl_api import router as rl_router
+from .scraping_api import router as scraping_router
 from .state import canvas_items, merge_history
 from ..features import EdgeFeatures, PieceFeatures
 from ..group import PieceGroup, merge_groups
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(segmentation_router)
     app.include_router(canvas_router)
     app.include_router(rl_router)
+    app.include_router(scraping_router)
     return app
 
 

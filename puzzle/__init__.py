@@ -28,6 +28,7 @@ from .scoring import (
     top_n_matches,
 )
 from .group import PieceGroup, merge_groups, split_group
+from .scraping import AutoTraderScraper, VehicleData, AutomotiveMLAnalyzer
 
 __all__ = [
     "remove_background",
@@ -56,4 +57,7 @@ __all__ = [
     "PieceGroup",
     "merge_groups",
     "split_group",
+    "AutoTraderScraper",
+    "VehicleData",
+    "AutomotiveMLAnalyzer",
 ]
